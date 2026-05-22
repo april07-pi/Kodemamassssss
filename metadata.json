@@ -1,0 +1,6 @@
+{
+  "name": "KodeMamas",
+  "description": "Offline-first multilingual coding education platform for South African communities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
