@@ -125,8 +125,8 @@ class Repository(private val db: AppDatabase) {
         // 1. Enter default User Profile
         db.userDao().insertOrUpdateProfile(
             UserProfile(
-                name = "Naledi",
-                email = "naledi@kodemamas.org",
+                name = "Nokwazi",
+                email = "nokwazi@kodemamas.org",
                 role = "Mama", // Mama, Student, Girl
                 languageCode = "en",
                 streak = 3,
@@ -152,7 +152,7 @@ class Repository(private val db: AppDatabase) {
             LessonStep(
                 "html_1_s1", "html_1", 1,
                 "Welcome to HTML!",
-                "HTML stands for HyperText Markup Language. It's the bone structure of every website! Today, we will code a responsive digital storefront for **Mam's Spaza shop** in Soweto. Click next to start setting up our shelf structure.",
+                "HTML stands for HyperText Markup Language. It's the bone structure of every website! Today, we will code a responsive digital storefront for **Mam's Spaza shop** in Bloemfontein. Click next to start setting up our shelf structure.",
                 "Siyakwamukela! HTML yakha amathambo ewebhusayithi. Namuhla sizokwakha isitolo sika-Mama esiku-inthanethi.",
                 "", "READ", "Click Next to continue!"
             ),
@@ -290,7 +290,7 @@ class Repository(private val db: AppDatabase) {
         // 6. Prepopulate Discussion Posts
         val defaultPosts = listOf(
             DiscussionPost(
-                "post_1", "Mama Thandi (Soweto)", "Mama",
+                "post_1", "Mama Thandi (Bloemfontein)", "Mama",
                 "Hao everyone! I just launched my Spaza storefront after Lesson 2! I put my address and pictures of my fresh archar and bread on my HTML profile. Two customers called me today saying they saw my prices online! Ngiyabonga KodeMamas!",
                 System.currentTimeMillis() - 3600000 * 2, 28, 6, "zu"
             ),
@@ -321,7 +321,7 @@ class Repository(private val db: AppDatabase) {
             MentorChat(
                 isAi = false,
                 isUser = false,
-                messageText = "Hello from Johannesburg! I am Mentor Akhona, your human tech buddy. Welcome to KodeMamas! I am matched with you to review your CV, assist in getting job-ready, and answer coding blockages. Leave a message here anytime!"
+                messageText = "Hello from Bloemfontein! I am Nokwazi Nobuhle Xaba, your founder and tech mentor. Welcome to KodeMamas! I am matched with you to review your CV, help you get job-ready, and answer coding questions. Leave a message here anytime!"
             )
         )
     }

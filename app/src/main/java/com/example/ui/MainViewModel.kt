@@ -398,7 +398,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // 1-on-1 mentorship chat with Akhona
+    // 1-on-1 mentorship chat with Nokwazi
     fun sendMentorChat(messageText: String) {
         if (messageText.trim().isEmpty()) return
         viewModelScope.launch {
@@ -412,7 +412,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "Wow, that is a fantastic question! I highly recommend checking out Lesson 1 for the Spaza Shop setup first, it will clear that syntax.",
                 "Excellent progress! Remember to save your lesson downloaded to read when you travel out of signal coverage. Let me know if you want me to review your CV draft!",
                 "Ngiyabonga for your message! You have built a strong logical base. Let's arrange a 1-on-1 Zoom setup call on our premium tier once you finish Lesson 3.",
-                "Molo student! I am currently checking coding logs from Soweto. Your profile looks amazing. Continue building and creating!"
+                "Molo student! I am currently checking coding logs from Bloemfontein. Your profile looks amazing. Continue building and creating!"
             )
             val randomReply = replies.random()
             val mentorReply = MentorChat(isAi = false, isUser = false, messageText = randomReply)

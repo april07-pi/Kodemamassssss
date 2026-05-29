@@ -299,7 +299,7 @@ fun AppHeader(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${profile.role} • Soweto Hub",
+                        text = "${profile.role} • Bloemfontein Hub",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 11.sp
                     )
@@ -613,7 +613,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String) {
                             color = Color.White
                         )
                         Text(
-                            text = "Soweto Hub Certified",
+                            text = "Bloemfontein Hub Certified",
                             fontSize = 9.sp,
                             color = Color.White.copy(alpha = 0.6f)
                         )
@@ -785,7 +785,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(text = "Mama Thandi", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.Black)
-                                Text(text = "Soweto Spaza Owner", fontSize = 10.sp, color = Color.Gray)
+                                Text(text = "Bloemfontein Spaza Owner", fontSize = 10.sp, color = Color.Gray)
                             }
                         }
                         Spacer(modifier = Modifier.height(6.dp))
@@ -1173,7 +1173,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             ) {
                                 Column {
                                     Text(
-                                        text = "Ngolimi Lwakho 🇿🇦:",
+                                        text = Localization.translate("in_your_language", langCode),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
                                         color = ThemeIndigo
@@ -1769,7 +1769,7 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                         .fillMaxWidth()
                         .height(72.dp)
                         .clip(RoundedCornerShape(12.dp)),
-                    placeholder = { Text(text = "Share your daily coding win with Soweto Hub...", fontSize = 12.sp) },
+                    placeholder = { Text(text = "Share your daily coding win with Bloemfontein Hub...", fontSize = 12.sp) },
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color(0xFFFAF9FF),
                         unfocusedContainerColor = Color(0xFFFAF9FF),
@@ -1905,8 +1905,8 @@ fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
     var mentorNavState by remember { mutableStateOf("menu") } // menu, advisor, cv, interview
 
     // Local states for CV Builder input
-    var nameCV by remember { mutableStateOf("Naledi Thoko") }
-    var locationCV by remember { mutableStateOf("Soweto, Gauteng") }
+    var nameCV by remember { mutableStateOf("Nokwazi Nobuhle Xaba") }
+    var locationCV by remember { mutableStateOf("Bloemfontein, Free State") }
     var selectedRoleCV by remember { mutableStateOf("Spaza Manager & Digitization Specialist") }
     var skillsCV by remember { mutableStateOf("HTML storefront alignment, CSS palettes tuning, Local Android compilers handling") }
 
@@ -2022,8 +2022,8 @@ fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "1-on-1 counselor chat", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 13.sp)
-                                Text(text = "Mathes with Mentor Akhona inside Soweto campus", fontSize = 11.sp, color = Color.Gray)
+                                Text(text = "1-on-1 advisor chat", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 13.sp)
+                                Text(text = "Matches with Founder Nokwazi inside Bloemfontein campus", fontSize = 11.sp, color = Color.Gray)
                             }
                             Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = ThemeIndigo)
                         }
@@ -2102,7 +2102,7 @@ fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
                 IconButton(onClick = { mentorNavState = "menu" }) {
                     Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = ThemeIndigo)
                 }
-                Text(text = "Counselor Akhona 👩🏾‍💼", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color.Black)
+                Text(text = "Founder Nokwazi 👩🏾‍💼", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color.Black)
             }
 
             LazyColumn(
@@ -2136,7 +2136,7 @@ fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
 
                 if (isTyping) {
                     item {
-                        Text(text = "Akhona is replying to your message...", color = Color.Gray, fontSize = 11.sp)
+                        Text(text = "Nokwazi is replying to your message...", color = Color.Gray, fontSize = 11.sp)
                     }
                 }
             }
@@ -2159,7 +2159,7 @@ fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent
                     ),
-                    placeholder = { Text(text = "Ask Akhona about internships in Johannesburg...", fontSize = 12.sp) }
+                    placeholder = { Text(text = "Ask Nokwazi about internships in Bloemfontein...", fontSize = 12.sp) }
                 )
 
                 IconButton(
