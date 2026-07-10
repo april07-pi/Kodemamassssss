@@ -29,6 +29,7 @@ data class UserProfile(
     val xp: Int = 0,
     val dataSavingMode: Boolean = false,
     val isPremium: Boolean = false,
+    val isPlus: Boolean = false,
     val hasDownloadedOffline: Boolean = false,
     val avatarRes: String = "mama_avatar"
 )
@@ -114,4 +115,28 @@ data class MentorChat(
     val isUser: Boolean,
     val messageText: String,
     val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "buddies")
+data class Buddy(
+    @PrimaryKey val id: String,
+    val name: String,
+    val role: String, // "Mama", "Student", "Mentor"
+    val languageCode: String,
+    val xp: Int,
+    val avatarRes: String,
+    val interests: String, // Comma-separated interests: e.g. "Spaza,Agriculture"
+    val currentLesson: String,
+    val isConnected: Boolean = false
+)
+
+@Entity(tableName = "buddy_messages")
+data class BuddyMessage(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val buddyId: String,
+    val senderId: String, // "me" or buddyId
+    val messageText: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val sharedResourceTitle: String = "", // e.g. "Spaza HTML Template"
+    val sharedResourceCode: String = "" // e.g. "<html>...</html>"
 )

@@ -32,6 +32,9 @@ interface UserDao {
 
     @Query("UPDATE user_profiles SET isPremium = :isPremium WHERE id = 1")
     suspend fun updatePremiumStatus(isPremium: Boolean)
+
+    @Query("UPDATE user_profiles SET isPlus = :isPlus WHERE id = 1")
+    suspend fun updatePlusStatus(isPlus: Boolean)
 }
 
 @Dao
@@ -41,6 +44,9 @@ interface LessonDao {
 
     @Query("SELECT * FROM lessons WHERE id = :lessonId LIMIT 1")
     suspend fun getLessonById(lessonId: String): Lesson?
+
+    @Query("SELECT * FROM lessons")
+    suspend fun getAllLessonsList(): List<Lesson>
 
     @Query("UPDATE lessons SET isDownloaded = :downloaded WHERE id = :lessonId")
     suspend fun updateDownloadedStatus(lessonId: String, downloaded: Boolean)
@@ -122,4 +128,25 @@ interface ChatDao {
 
     @Query("DELETE FROM mentor_chats WHERE isAi = :isAi")
     suspend fun clearChats(isAi: Boolean)
+}
+
+@Dao
+interface BuddyDao {
+    @Query("SELECT * FROM buddies ORDER BY xp DESC")
+    fun getAllBuddies(): Flow<List<Buddy>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBuddies(buddies: List<Buddy>)
+
+    @Query("UPDATE buddies SET isConnected = :connected WHERE id = :buddyId")
+    suspend fun updateConnectionStatus(buddyId: String, connected: Boolean)
+
+    @Query("SELECT * FROM buddy_messages WHERE buddyId = :buddyId ORDER BY timestamp ASC")
+    fun getMessagesForBuddy(buddyId: String): Flow<List<BuddyMessage>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBuddyMessage(message: BuddyMessage)
+
+    @Query("DELETE FROM buddy_messages WHERE buddyId = :buddyId")
+    suspend fun clearBuddyMessages(buddyId: String)
 }

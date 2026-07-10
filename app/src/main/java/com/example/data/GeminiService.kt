@@ -23,57 +23,73 @@ object GeminiService {
             return@withContext "Sanibonani! I am in Offline/Local Mode right now. To enable real-time AI calculations, please add a valid GEMINI_API_KEY to your AI Studio Secrets panel!"
         }
 
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+        // Try modern, non-prohibited Gemini models as per platform guidelines.
+        val modelsToTry = listOf(
+            "gemini-3.5-flash",
+            "gemini-flash-latest"
+        )
 
-        val requestJson = JSONObject()
-        val contentsArray = JSONArray()
-        val contentObj = JSONObject()
-        val partsArray = JSONArray()
-        val partObj = JSONObject()
-        
-        partObj.put("text", prompt)
-        partsArray.put(partObj)
-        contentObj.put("parts", partsArray)
-        contentsArray.put(contentObj)
-        requestJson.put("contents", contentsArray)
+        var lastError: String? = null
 
-        if (systemInstruction.isNotEmpty()) {
-            val sysInstructionObj = JSONObject()
-            val sysPartsArray = JSONArray()
-            val sysPartObj = JSONObject()
-            sysPartObj.put("text", systemInstruction)
-            sysPartsArray.put(sysPartObj)
-            sysInstructionObj.put("parts", sysPartsArray)
-            requestJson.put("systemInstruction", sysInstructionObj)
-        }
+        for (modelName in modelsToTry) {
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
 
-        val mediaType = "application/json; charset=utf-8".toMediaType()
-        val body = requestJson.toString().toRequestBody(mediaType)
-        val request = Request.Builder()
-            .url(url)
-            .post(body)
-            .build()
+            val requestJson = JSONObject()
+            val contentsArray = JSONArray()
+            val contentObj = JSONObject()
+            val partsArray = JSONArray()
+            val partObj = JSONObject()
+            
+            partObj.put("text", prompt)
+            partsArray.put(partObj)
+            contentObj.put("parts", partsArray)
+            contentsArray.put(contentObj)
+            requestJson.put("contents", contentsArray)
 
-        try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    return@withContext "Error: API call failed with status code ${response.code} (Check if your internet is working)."
-                }
-                val bodyString = response.body?.string() ?: return@withContext "Error: Empty response body received from Gemini servers."
-                val jsonResponse = JSONObject(bodyString)
-                val candidates = jsonResponse.optJSONArray("candidates")
-                if (candidates != null && candidates.length() > 0) {
-                    val firstCandidate = candidates.getJSONObject(0)
-                    val content = firstCandidate.optJSONObject("content")
-                    val parts = content?.optJSONArray("parts")
-                    if (parts != null && parts.length() > 0) {
-                        return@withContext parts.getJSONObject(0).optString("text")
+            if (systemInstruction.isNotEmpty()) {
+                val sysInstructionObj = JSONObject()
+                val sysPartsArray = JSONArray()
+                val sysPartObj = JSONObject()
+                sysPartObj.put("text", systemInstruction)
+                sysPartsArray.put(sysPartObj)
+                sysInstructionObj.put("parts", sysPartsArray)
+                requestJson.put("systemInstruction", sysInstructionObj)
+            }
+
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val body = requestJson.toString().toRequestBody(mediaType)
+            val request = Request.Builder()
+                .url(url)
+                .post(body)
+                .build()
+
+            try {
+                client.newCall(request).execute().use { response ->
+                    val responseBody = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val jsonResponse = JSONObject(responseBody)
+                        val candidates = jsonResponse.optJSONArray("candidates")
+                        if (candidates != null && candidates.length() > 0) {
+                            val firstCandidate = candidates.getJSONObject(0)
+                            val content = firstCandidate.optJSONObject("content")
+                            val parts = content?.optJSONArray("parts")
+                            if (parts != null && parts.length() > 0) {
+                                return@withContext parts.getJSONObject(0).optString("text")
+                            }
+                        }
+                    } else {
+                        // Check if it's an API Key rejection
+                        if (response.code == 403 || (response.code == 400 && responseBody.contains("API key"))) {
+                            return@withContext "Error: Google Gemini API rejected your API Key (Status ${response.code}). Please check if your key is active and correctly entered in your AI Studio Secrets panel!"
+                        }
+                        lastError = "API call failed on $modelName with status ${response.code}"
                     }
                 }
-                "Mam, I received your message but could not generate a coding answer. Please rephrase."
+            } catch (e: Exception) {
+                lastError = "Connection error on $modelName: ${e.message}"
             }
-        } catch (e: Exception) {
-            "Error contacting Gemini API: ${e.message}. You can still use our local offline lessons and quiz resources normally!"
         }
+
+        "Error contacting Gemini API: ${lastError ?: "No available models responded."}. You can still use our local offline lessons and quiz resources normally!"
     }
 }
