@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Leer kodeer in jou eie taal</string>
+    <string name="offline_online">Alyn- en Vanlyn-lesse</string>
+    <string name="built_for_sa">Gebou vir Suid-Afrikaanse Gemeenskappe</string>
+    <string name="get_started">Laat Ons Begin</string>
+    <string name="dashboard">Paneelbord</string>
+    <string name="lessons">Lesse</string>
+    <string name="quizzes">Vasvrae</string>
+    <string name="ai_assistant">AI-Kletsbot</string>
+    <string name="community">Gemeenskap</string>
+    <string name="profile">My Profiel</string>
+    <string name="premium">Mentorskap</string>
+    <string name="total_xp">Totale XP</string>
+    <string name="streak">Aaneenlopende Dae</string>
+    <string name="unlocked">Ontsluit</string>
+    <string name="locked">Gesluit</string>
+    <string name="downloaded">Afgestoor</string>
+    <string name="download_class">Laai Les Af</string>
+    <string name="data_saver">Databesparing</string>
+    <string name="online_status">Aanlyn-modus</string>
+    <string name="offline_status">Vanlyn-modus</string>
+    <string name="ask_something">Vra my \'n programmeringsvraag…</string>
+</resources>

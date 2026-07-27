@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Funda amakhodi ngolimi lwakho</string>
+    <string name="offline_online">Izifundo ze-Offline ne-Online</string>
+    <string name="built_for_sa">Yenzelwe imiphakathi ye-Afrika yeSewula</string>
+    <string name="get_started">Asithome</string>
+    <string name="dashboard">Ideshibhodi</string>
+    <string name="lessons">Izifundo</string>
+    <string name="quizzes">Imibuzo</string>
+    <string name="ai_assistant">Umsizi we-AI</string>
+    <string name="community">Isitshaba sethu</string>
+    <string name="profile">Iphrofayili yami</string>
+    <string name="premium">Ubeluleki</string>
+    <string name="total_xp">XP Yoke</string>
+    <string name="streak">Amalanga alandelanako</string>
+    <string name="unlocked">Ivulwe</string>
+    <string name="locked">Ivaliwe</string>
+    <string name="downloaded">Ilandiwe</string>
+    <string name="download_class">Thwebula Isifundo lesi</string>
+    <string name="data_saver">Ubulungi be-Data</string>
+    <string name="online_status">Une-Inthanethi</string>
+    <string name="offline_status">Ngaphandle kwe-Inthanethi</string>
+    <string name="ask_something">Mbuze umbuzo wekhodingi…</string>
+</resources>

@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Dondzela ku khoda hi ririmi ra wena</string>
+    <string name="offline_online">Tidondzo ta Offline na Online</string>
+    <string name="built_for_sa">Yi ageteriwe vaaki va Afrika Dzonga</string>
+    <string name="get_started">A hi Sunguleni</string>
+    <string name="dashboard">Ideshibhodi</string>
+    <string name="lessons">Tidondzo</string>
+    <string name="quizzes">Swivutiso</string>
+    <string name="ai_assistant">Mupfuni wa AI</string>
+    <string name="community">Nhlangano wa hina</string>
+    <string name="profile">Phrofayili ya mina</string>
+    <string name="premium">Vuleteri</string>
+    <string name="total_xp">XP Hinkwayo</string>
+    <string name="streak">Masiku yo landelanisa</string>
+    <string name="unlocked">Yi pfuriwile</string>
+    <string name="locked">Yi khomiwile</string>
+    <string name="downloaded">Yi kokiwe</string>
+    <string name="download_class">Koka Dondzo leyi</string>
+    <string name="data_saver">Ku hlayisa Data</string>
+    <string name="online_status">U na Inthanete</string>
+    <string name="offline_status">U hava Inthanete</string>
+    <string name="ask_something">Ndzi vutise xivutiso xa khodingi…</string>
+</resources>

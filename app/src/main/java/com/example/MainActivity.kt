@@ -77,15 +77,24 @@ fun MainAppScreen(viewModel: MainViewModel) {
 
     // Dialogs
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
     var showOnboarding by remember { mutableStateOf(true) }
     var showOfflineAccountDialog by remember { mutableStateOf(false) }
+    var showTourStep by remember { mutableStateOf<Int?>(null) }
+
+    val downloadProgress by viewModel.downloadProgress.collectAsState()
 
     if (showOnboarding && currentLesson == null) {
         OnboardingScreen(
-            onGetStarted = { showOnboarding = false },
+            onGetStarted = { 
+                showOnboarding = false 
+                // Automatically prompt guided tour for first-time inquisitive/nervous users
+                showTourStep = 0
+            },
             onExploreCourses = {
                 viewModel.selectTab("learn")
                 showOnboarding = false
+                showTourStep = 0
             },
             langCode = langCode,
             isOnline = isOnline,
@@ -106,7 +115,9 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         onLangClick = { showLanguageDialog = true },
                         onToggleNetwork = { viewModel.toggleNetworkMode() },
                         onEditProfile = { showOfflineAccountDialog = true },
-                        onLanguageSelected = { code -> viewModel.changeLanguage(code) }
+                        onLanguageSelected = { code -> viewModel.changeLanguage(code) },
+                        onStartTour = { showTourStep = 0 },
+                        onSettingsClick = { showSettingsDialog = true }
                     )
                 }
             },
@@ -171,6 +182,24 @@ fun MainAppScreen(viewModel: MainViewModel) {
         )
     }
 
+    if (showSettingsDialog) {
+        SettingsDialog(
+            currentLangCode = langCode,
+            userProfile = userProfile,
+            isOnline = isOnline,
+            onDismiss = { showSettingsDialog = false },
+            onLangSelected = { code ->
+                viewModel.changeLanguage(code)
+            },
+            onToggleDataSaver = { enabled ->
+                viewModel.toggleDataSavingMode(enabled)
+            },
+            onToggleNetwork = {
+                viewModel.toggleNetworkMode()
+            }
+        )
+    }
+
     if (showOfflineAccountDialog) {
         OfflineAccountDialog(
             userProfile = userProfile,
@@ -195,6 +224,159 @@ fun MainAppScreen(viewModel: MainViewModel) {
             onDismiss = { viewModel.dismissOnboardingWin() }
         )
     }
+
+    // Download progress overlay dialog
+    downloadProgress?.let { progress ->
+        androidx.compose.ui.window.Dialog(onDismissRequest = {}) {
+            androidx.compose.material3.Card(
+                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, ThemeCardBorder),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(color = ThemeIndigo, modifier = Modifier.size(40.dp))
+                    Text(
+                        text = "Downloading Course Materials... ${(progress * 100).toInt()}%",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color.Black
+                    )
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                        color = ThemeIndigo,
+                        trackColor = Color.LightGray.copy(alpha = 0.3f)
+                    )
+                    Text(
+                        text = "Saving to offline cache. Please wait. Sula kancane, silungisa izifundo...",
+                        fontSize = 11.sp,
+                        color = Color.Gray,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+
+    // Interactive Guided Product Tour Dialog
+    showTourStep?.let { step ->
+        GuidedTourDialog(
+            step = step,
+            onNext = {
+                if (step < 3) {
+                    showTourStep = step + 1
+                } else {
+                    showTourStep = null
+                    android.widget.Toast.makeText(viewModel.getApplication(), "🎉 Tour completed! You're ready to build, sister!", android.widget.Toast.LENGTH_LONG).show()
+                }
+            },
+            onSkip = {
+                showTourStep = null
+                android.widget.Toast.makeText(viewModel.getApplication(), "Tour skipped. Enjoy learning!", android.widget.Toast.LENGTH_SHORT).show()
+            },
+            langCode = langCode
+        )
+    }
+}
+
+// Interactive Guided Product Tour Dialog Composable
+@Composable
+fun GuidedTourDialog(
+    step: Int,
+    onNext: () -> Unit,
+    onSkip: () -> Unit,
+    langCode: String
+) {
+    val title = when (step) {
+        0 -> "Welcome to KodeMamas! ✨"
+        1 -> "Interactive Lessons 📚"
+        2 -> "Empathetic AI Tutor 🤖"
+        3 -> "Community & Mentors 👥"
+        else -> "Product Tour"
+    }
+    
+    val text = when (step) {
+        0 -> "Sawubona! Let's build your future. Your Dashboard features a 100-Day Onboarding Tracker to keep you motivated and celebrate your daily streaks."
+        1 -> "Select the Learn tab to access 10 interactive lessons customized with South African Spaza examples. Download them to study completely offline!"
+        2 -> "Need step-by-step assistance? Tap the AI Chat tab to communicate with our friendly tutor, fluent in all 12 official South African languages!"
+        3 -> "Use the Community tab to ask questions on the forums, chat with professional mentors, and share code templates with study buddies!"
+        else -> ""
+    }
+    
+    val nextLabel = if (step == 3) "Finish Tour" else "Next Step ➜"
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onSkip) {
+        androidx.compose.material3.Card(
+            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF1B0B30)),
+            border = BorderStroke(1.5.dp, ThemeGold),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        color = ThemeGold,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "${step + 1} / 4",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Text(
+                    text = text,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onSkip,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Skip Tour", fontSize = 11.sp)
+                    }
+                    
+                    androidx.compose.material3.Button(
+                        onClick = onNext,
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = ThemeGold, contentColor = Color.Black),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1.2f)
+                    ) {
+                        Text(nextLabel, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ---------------------- COMPONENT: HEADER ----------------------
@@ -206,7 +388,9 @@ fun AppHeader(
     onLangClick: () -> Unit,
     onToggleNetwork: () -> Unit,
     onEditProfile: () -> Unit = {},
-    onLanguageSelected: (String) -> Unit = {}
+    onLanguageSelected: (String) -> Unit = {},
+    onStartTour: () -> Unit = {},
+    onSettingsClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -336,6 +520,32 @@ fun AppHeader(
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                }
+
+                // Help/Tour icon button for Inquisitive/Nervous User
+                androidx.compose.material3.IconButton(
+                    onClick = onStartTour,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Help,
+                        contentDescription = "Take Guided Tour",
+                        tint = ThemeGold,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Settings icon button for language and other configs
+                androidx.compose.material3.IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.size(34.dp).testTag("settings_button")
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Settings,
+                        contentDescription = "Settings Menu",
+                        tint = ThemeGold,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -865,6 +1075,49 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                 }
             }
 
+            // Expert Quick Continue Study shortcut item
+            item {
+                val nextLessonToStudy = lessons.find { it.isUnlocked } ?: lessons.firstOrNull()
+                nextLessonToStudy?.let { lesson ->
+                    androidx.compose.material3.Card(
+                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFFF3E8FF)),
+                        border = BorderStroke(1.dp, Color(0xFFD8B4FE)),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable { viewModel.selectLesson(lesson) }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayCircle,
+                                contentDescription = "Quick Study",
+                                tint = ThemeIndigo,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "EXPERT SHORTCUT: NEXT LESSON",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = ThemeIndigo
+                                )
+                                Text(
+                                    text = "Continue Studying: ${lesson.title}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // 100-Day Journey Progress Tracking Section
             item {
                 OnboardingJourneyWidget(viewModel = viewModel, langCode = langCode)
@@ -903,7 +1156,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             Spacer(modifier = Modifier.height(2.dp))
                             val downloadedCount = lessons.count { it.isDownloaded }
                             Text(
-                                text = if (userProfile?.hasDownloadedOffline == true || downloadedCount == 4) "All 4 Saved" else "$downloadedCount/4 Saved",
+                                text = if (userProfile?.hasDownloadedOffline == true || downloadedCount == lessons.size) "All ${lessons.size} Saved" else "$downloadedCount/${lessons.size} Saved",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
@@ -1535,15 +1788,16 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             ) {
                                 Column {
                                     Text("STREAK", fontSize = 9.sp, color = Color.Gray)
-                                    Text("5 Days Active", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
+                                    Text("${userProfile?.streak ?: 5} Days Active", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
                                 }
                                 Column {
                                     Text("XP POINTS", fontSize = 9.sp, color = Color.Gray)
-                                    Text("180 XP", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
+                                    Text("${userProfile?.xp ?: 180} XP", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
                                 }
                                 Column {
                                     Text("COMPLETED", fontSize = 9.sp, color = Color.Gray)
-                                    Text("1 / 4 Lessons", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
+                                    val completedCount = maxOf(0, lessons.count { it.isUnlocked } - 1)
+                                    Text("$completedCount / ${lessons.size} Lessons", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
                                 }
                             }
                         }
@@ -1789,20 +2043,40 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("📝 Add / Invite Student to Classroom Group", fontWeight = FontWeight.Bold, fontSize = 13.sp)
 
+                            val isPhoneFormatValid = inviteStudentPhone.trim().length == 10 && inviteStudentPhone.all { it.isDigit() }
+                            val isNameFormatValid = inviteStudentName.trim().isNotEmpty() && inviteStudentName.all { it.isLetter() || it.isWhitespace() }
+                            val isInviteFormValid = isPhoneFormatValid && isNameFormatValid
+
                             OutlinedTextField(
                                 value = inviteStudentName,
-                                onValueChange = { inviteStudentName = it },
+                                onValueChange = { inviteStudentName = it.take(50) },
                                 modifier = Modifier.fillMaxWidth(),
                                 placeholder = { Text("Student Full Name (e.g. Sipho)") },
-                                singleLine = true
+                                singleLine = true,
+                                isError = inviteStudentName.isNotEmpty() && !isNameFormatValid,
+                                supportingText = {
+                                    if (inviteStudentName.isNotEmpty() && !isNameFormatValid) {
+                                        Text("Please enter letters only.", color = Color.Red, fontSize = 10.sp)
+                                    }
+                                }
                             )
 
                             OutlinedTextField(
                                 value = inviteStudentPhone,
-                                onValueChange = { inviteStudentPhone = it },
+                                onValueChange = { input ->
+                                    if (input.all { it.isDigit() }) {
+                                        inviteStudentPhone = input.take(12)
+                                    }
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                                 placeholder = { Text("Cell Number (e.g. 0723456789)") },
-                                singleLine = true
+                                singleLine = true,
+                                isError = inviteStudentPhone.isNotEmpty() && !isPhoneFormatValid,
+                                supportingText = {
+                                    if (inviteStudentPhone.isNotEmpty() && !isPhoneFormatValid) {
+                                        Text("Enter a valid 10-digit South African number.", color = Color.Red, fontSize = 10.sp)
+                                    }
+                                }
                             )
 
                             Row(
@@ -1811,20 +2085,22 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             ) {
                                 Button(
                                     onClick = {
-                                        if (inviteStudentName.trim().isEmpty() || inviteStudentPhone.trim().isEmpty()) {
-                                            android.widget.Toast.makeText(context, "Fill in student name & phone number!", android.widget.Toast.LENGTH_SHORT).show()
-                                        } else {
+                                        if (isInviteFormValid) {
                                             simulatedClassStudents.add(Triple(inviteStudentName, "0 XP", "Rookie"))
                                             android.widget.Toast.makeText(context, "Invite link sent to $inviteStudentPhone! Student added to classroom roster.", android.widget.Toast.LENGTH_LONG).show()
                                             inviteStudentName = ""
                                             inviteStudentPhone = ""
                                         }
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                                    enabled = isInviteFormValid,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = ThemeIndigo,
+                                        disabledContainerColor = Color.LightGray
+                                    ),
                                     shape = RoundedCornerShape(10.dp),
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("Invite Student", fontSize = 11.sp)
+                                    Text("Invite Student", fontSize = 11.sp, color = if (isInviteFormValid) Color.White else Color.DarkGray)
                                 }
 
                                 OutlinedButton(
@@ -2270,8 +2546,9 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             Text("Naledi Nobuhle Xaba", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.White)
                             Text("Tech Apprentice • Stream Level 3", fontSize = 11.sp, color = ThemeGold)
                             Spacer(modifier = Modifier.height(10.dp))
+                            val completedCount = maxOf(0, lessons.count { it.isUnlocked } - 1)
                             Text(
-                                "Finished 1/4 Local Coding compilers modules. Studying offline-first configurations at Bloemfontein Hub!",
+                                "Finished $completedCount/${lessons.size} Local Coding compilers modules. Studying offline-first configurations at Bloemfontein Hub!",
                                 fontSize = 10.sp,
                                 color = Color.White.copy(alpha = 0.8f),
                                 textAlign = TextAlign.Center,
@@ -3506,6 +3783,11 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                     .padding(14.dp)
             ) {
                 Column {
+                    val isPostLengthValid = postInput.length <= 500
+                    val isPostEmpty = postInput.trim().isEmpty()
+                    val hasBlockedWords = listOf("http", "www", "free money", "bitcoin", "casino").any { postInput.lowercase().contains(it) }
+                    val isPostValid = isPostLengthValid && !isPostEmpty && !hasBlockedWords
+
                     TextField(
                         value = postInput,
                         onValueChange = { postInput = it },
@@ -3521,27 +3803,51 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                             unfocusedIndicatorColor = Color.Transparent
                         )
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Inline error warnings
+                        if (hasBlockedWords) {
+                            Text("Please avoid links or spam content.", color = Color.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        } else if (postInput.length > 500) {
+                            Text("Content exceeds 500 character limit!", color = Color.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
 
+                        // Character counter
+                        Text(
+                            text = "${postInput.length} / 500",
+                            color = if (isPostLengthValid) Color.Gray else Color.Red,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
                         onClick = {
-                            if (postInput.trim().isNotEmpty()) {
+                            if (isPostValid) {
                                 viewModel.addForumPost(postInput)
                                 postInput = ""
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                        enabled = isPostValid,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ThemeIndigo,
+                            disabledContainerColor = Color.LightGray
+                        ),
                         modifier = Modifier.align(Alignment.End),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     ) {
-                        Text(text = "Post to Forum", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "Post to Forum", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isPostValid) Color.White else Color.DarkGray)
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(12.dp))
-
             // Posts list
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -4869,6 +5175,216 @@ fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
     }
 }
 
+// ---------------------- COMPONENT: SETTINGS DIALOG (SETTINGS MENU) ----------------------
+@Composable
+fun SettingsDialog(
+    currentLangCode: String,
+    userProfile: UserProfile?,
+    isOnline: Boolean,
+    onDismiss: () -> Unit,
+    onLangSelected: (String) -> Unit,
+    onToggleDataSaver: (Boolean) -> Unit,
+    onToggleNetwork: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color.White)
+                .border(2.dp, ThemeIndigo, RoundedCornerShape(28.dp))
+                .padding(20.dp)
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = ThemeIndigo,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "Settings Menu",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 18.sp,
+                            color = ThemeIndigo
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFF3E8FF))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "v1.2",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ThemeIndigo
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Configure app language toggle (all 12 South African languages) and device data optimization.",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+
+                // Language Toggle Section
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "APP LANGUAGE TOGGLE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ThemeIndigo.copy(alpha = 0.8f)
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .height(200.dp)
+                            .fillMaxWidth()
+                            .border(1.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .padding(4.dp)
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().testTag("settings_language_list"),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(Localization.languages) { lang ->
+                                val isSelected = lang.code == currentLangCode
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) ThemeIndigo.copy(alpha = 0.1f) else Color.Transparent)
+                                        .clickable { onLangSelected(lang.code) }
+                                        .testTag("settings_lang_option_${lang.code}")
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        val flag = when (lang.code) {
+                                            "sasl" -> "🤟"
+                                            else -> "🇿🇦"
+                                        }
+                                        Text(text = flag, fontSize = 16.sp)
+                                        Text(
+                                            text = lang.localName,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) ThemeIndigo else Color.Black,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = lang.displayName,
+                                        color = Color.Gray,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Preferences & Network optimization section
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "PREFERENCES & NETWORK",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ThemeIndigo.copy(alpha = 0.8f)
+                    )
+
+                    // Data Saver switch
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Gray.copy(alpha = 0.05f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Data-Saving Mode",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = "Limit background data & compress visual assets",
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = userProfile?.dataSavingMode == true,
+                            onCheckedChange = { onToggleDataSaver(it) },
+                            modifier = Modifier.testTag("settings_data_saver_switch")
+                        )
+                    }
+
+                    // Network toggle switch
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Gray.copy(alpha = 0.05f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Online Connectivity",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = if (isOnline) "Connected to standard data" else "Zero-data offline lessons active",
+                                fontSize = 10.sp,
+                                color = if (isOnline) Color(0xFF10B981) else Color.Gray
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = isOnline,
+                            onCheckedChange = { onToggleNetwork() },
+                            modifier = Modifier.testTag("settings_network_switch")
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.testTag("settings_dismiss_button")
+                    ) {
+                        Text("Close", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ---------------------- COMPONENT: DIALOG DYNAMIC SELECTOR ----------------------
 @Composable
 fun LanguagePickerDialog(
@@ -4961,6 +5477,14 @@ fun OfflineAccountDialog(
     var selectedLangCode by remember { mutableStateOf(userProfile?.languageCode ?: "en") }
     var xpLevel by remember { mutableStateOf("Novice (0 XP)") }
 
+    val isNameValid = nameInput.trim().length in 1..30 && nameInput.all { it.isLetterOrDigit() || it.isWhitespace() || it == '-' || it == '\'' }
+    val nameErrorMessage = when {
+        nameInput.trim().isEmpty() -> "Name cannot be empty"
+        nameInput.length > 30 -> "Name must be 30 characters or less"
+        !nameInput.all { it.isLetterOrDigit() || it.isWhitespace() || it == '-' || it == '\'' } -> "Special characters not allowed"
+        else -> null
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
@@ -5020,13 +5544,23 @@ fun OfflineAccountDialog(
                         placeholder = { Text("e.g. Sister Naledi", fontSize = 12.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        isError = nameErrorMessage != null && nameInput.isNotEmpty(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = ThemeIndigo,
                             unfocusedBorderColor = Color.LightGray,
-                            focusedLabelColor = ThemeIndigo
+                            focusedLabelColor = ThemeIndigo,
+                            errorBorderColor = Color.Red
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
+                    if (nameErrorMessage != null && nameInput.isNotEmpty()) {
+                        Text(
+                            text = nameErrorMessage,
+                            color = Color.Red,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                 }
 
                 // Role Selection
@@ -5177,7 +5711,7 @@ fun OfflineAccountDialog(
 
                     Button(
                         onClick = {
-                            if (nameInput.isNotBlank()) {
+                            if (nameInput.isNotBlank() && isNameValid) {
                                 val targetXp = when (xpLevel) {
                                     "Rookie (100 XP)" -> 100
                                     "Expert (180 XP)" -> 180
@@ -5186,7 +5720,7 @@ fun OfflineAccountDialog(
                                 onSubmit(nameInput, selectedRole, selectedLangCode, targetXp)
                             }
                         },
-                        enabled = nameInput.isNotBlank(),
+                        enabled = nameInput.isNotBlank() && isNameValid,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ThemeIndigo,
                             contentColor = Color.White

@@ -81,6 +81,9 @@ interface ProgressDao {
     @Query("SELECT * FROM user_progress")
     fun getAllProgress(): Flow<List<UserProgress>>
 
+    @Query("SELECT * FROM user_progress")
+    suspend fun getAllProgressSynchronous(): List<UserProgress>
+
     @Query("SELECT * FROM user_progress WHERE lessonId = :lessonId LIMIT 1")
     fun getProgressForLesson(lessonId: String): Flow<UserProgress?>
 

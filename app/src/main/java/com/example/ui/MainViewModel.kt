@@ -114,6 +114,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _mentorTyping = MutableStateFlow(false)
     val mentorTyping: StateFlow<Boolean> = _mentorTyping.asStateFlow()
 
+    // Simulated compilation & download progress flows
+    private val _isCompiling = MutableStateFlow(false)
+    val isCompiling: StateFlow<Boolean> = _isCompiling.asStateFlow()
+
+    private val _downloadProgress = MutableStateFlow<Float?>(null)
+    val downloadProgress: StateFlow<Float?> = _downloadProgress.asStateFlow()
+
     // Selected challenge in Daily Challenge View
     private val _activeChallenge = MutableStateFlow<CodingChallenge?>(null)
     val activeChallenge: StateFlow<CodingChallenge?> = _activeChallenge.asStateFlow()
@@ -150,33 +157,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private var isSendingBuddyMessage = false
+
     fun sendBuddyMessage(buddyId: String, text: String, sharedResourceTitle: String = "", sharedResourceCode: String = "") {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty() && sharedResourceTitle.isEmpty()) return
+        if (isSendingBuddyMessage) return
+        isSendingBuddyMessage = true
         viewModelScope.launch {
-            val msg = BuddyMessage(
-                buddyId = buddyId,
-                senderId = "me",
-                messageText = text,
-                sharedResourceTitle = sharedResourceTitle,
-                sharedResourceCode = sharedResourceCode
-            )
-            repository.insertBuddyMessage(msg)
-            
-            // Highlight interactive responses in native/South African flavors to make them super immersive
-            delay(1500)
-            val replyText = when {
-                sharedResourceTitle.isNotEmpty() -> "Wow, thank you so much for sharing '${sharedResourceTitle}'! This will help me immensely in my storefront too. Siyabonga kakhulu!"
-                text.lowercase().contains("molo") || text.lowercase().contains("hello") || text.lowercase().contains("yebo") || text.lowercase().contains("dumelang") -> 
-                    "Dumela! Thank you for connecting with me. How are your lessons going? Let's check our code and build something great! 🇿🇦"
-                text.lowercase().contains("help") || text.lowercase().contains("stuck") || text.lowercase().contains("code") || text.lowercase().contains("compiler") ->
-                    "Don't worry sister! Double check your tags. Make sure your closing tags have the slash like </h1> or </ul>. I am always online to help review! 👩‍💻"
-                else -> "This is awesome! Let's make sure we keep up our daily streak and finish our next coding challenges together. Step by step!"
+            try {
+                val msg = BuddyMessage(
+                    buddyId = buddyId,
+                    senderId = "me",
+                    messageText = trimmed,
+                    sharedResourceTitle = sharedResourceTitle,
+                    sharedResourceCode = sharedResourceCode
+                )
+                repository.insertBuddyMessage(msg)
+                
+                // Highlight interactive responses in native/South African flavors to make them super immersive
+                delay(1500)
+                val replyText = when {
+                    sharedResourceTitle.isNotEmpty() -> "Wow, thank you so much for sharing '${sharedResourceTitle}'! This will help me immensely in my storefront too. Siyabonga kakhulu!"
+                    trimmed.lowercase().contains("molo") || trimmed.lowercase().contains("hello") || trimmed.lowercase().contains("yebo") || trimmed.lowercase().contains("dumelang") -> 
+                        "Dumela! Thank you for connecting with me. How are your lessons going? Let's check our code and build something great! 🇿🇦"
+                    trimmed.lowercase().contains("help") || trimmed.lowercase().contains("stuck") || trimmed.lowercase().contains("code") || trimmed.lowercase().contains("compiler") ->
+                        "Don't worry sister! Double check your tags. Make sure your closing tags have the slash like </h1> or </ul>. I am always online to help review! 👩‍💻"
+                    else -> "This is awesome! Let's make sure we keep up our daily streak and finish our next coding challenges together. Step by step!"
+                }
+                val replyMsg = BuddyMessage(
+                    buddyId = buddyId,
+                    senderId = buddyId,
+                    messageText = replyText
+                )
+                repository.insertBuddyMessage(replyMsg)
+            } finally {
+                isSendingBuddyMessage = false
             }
-            val replyMsg = BuddyMessage(
-                buddyId = buddyId,
-                senderId = buddyId,
-                messageText = replyText
-            )
-            repository.insertBuddyMessage(replyMsg)
         }
     }
 
@@ -230,18 +247,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateOfflineUserProfile(name: String, role: String, langCode: String, newXp: Int) {
+        val trimmedName = name.trim()
+        if (trimmedName.isEmpty()) {
+            android.widget.Toast.makeText(getApplication(), "Name cannot be empty!", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (trimmedName.length > 30) {
+            android.widget.Toast.makeText(getApplication(), "Name is too long (max 30 characters)!", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!trimmedName.all { it.isLetterOrDigit() || it.isWhitespace() || it == '-' || it == '\'' }) {
+            android.widget.Toast.makeText(getApplication(), "Name contains invalid characters!", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
         viewModelScope.launch {
             sharedPrefs.edit().putString("selected_language_code", langCode).apply()
             val existing = userProfile.value
             val updated = existing?.copy(
-                name = name,
+                name = trimmedName,
                 role = role,
                 languageCode = langCode,
                 xp = newXp
             ) ?: UserProfile(
                 id = 1,
-                name = name,
-                email = "${name.lowercase().replace(" ", "")}@kodemamas.org",
+                name = trimmedName,
+                email = "${trimmedName.lowercase().replace(" ", "")}@kodemamas.org",
                 role = role,
                 languageCode = langCode,
                 xp = newXp,
@@ -304,15 +334,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun downloadAllLessons() {
+        if (_downloadProgress.value != null) return
         viewModelScope.launch {
+            _downloadProgress.value = 0f
+            for (i in 1..20) {
+                delay(80)
+                _downloadProgress.value = i / 20f
+            }
             val lessons = allLessons.value
             for (l in lessons) {
                 repository.updateLessonDownloaded(l.id, true)
             }
             repository.updateDownloadedOfflineStatus(true)
             // Add downloading XP reward
-            repository.updateProfile(userProfile.value!!.copy(xp = userProfile.value!!.xp + 40, hasDownloadedOffline = true))
+            val currentProfile = userProfile.value
+            if (currentProfile != null) {
+                repository.updateProfile(currentProfile.copy(xp = currentProfile.xp + 40, hasDownloadedOffline = true))
+            }
             completeOnboardingPhase("admit")
+            _downloadProgress.value = null
         }
     }
 
@@ -335,50 +375,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        when (currentLesson.category) {
-            "HTML" -> {
-                if (currentCode.contains("<h1>") && currentCode.contains("</h1>") && currentCode.lowercase().contains("spaza")) {
-                    _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\nHeading size h1: \"Mam's Spaza Shop\" with warm gold colors."
-                    _simulatorSuccess.value = true
-                } else if (currentCode.contains("<ul>") && currentCode.contains("</ul>")) {
-                    _simulatorOutput.value = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound elements: Bread, Milk, Rooibos Tea."
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "Web Preview Output:\n--------------------\n" + currentCode + "\n--------------------\nTip: Make sure to wrap headings in <h1>...</h1> or make lists using <ul> and <li>!"
-                    _simulatorSuccess.value = false
-                }
-            }
-            "CSS" -> {
-                if (currentCode.contains("background-color") && currentCode.contains("color")) {
-                    _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "CSS compiler output:\nModified style sheets rules. Use background-color and color to configure colors!"
-                    _simulatorSuccess.value = false
-                }
-            }
-            "JavaScript" -> {
-                if (currentCode.contains("calculateTotal") && currentCode.contains("18.50")) {
-                    _simulatorOutput.value = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.5 + 3*16 = 37 + 48 = 85)."
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined or code incomplete. Write the calculateTotal function!"
-                    _simulatorSuccess.value = false
-                }
-            }
-            "Python" -> {
-                if (currentCode.contains("temp > 30") && currentCode.contains("print")) {
-                    _simulatorOutput.value = "🐍 Python Terminal Output:\nWarning: High Heat! Increase irrigation x2.\n\n✅ Algorithm completed successfully!"
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "🐍 Python IDLE Console:\nError: IndentationError or missing conditional comparison condition temperature > 30."
-                    _simulatorSuccess.value = false
-                }
-            }
-        }
+        if (_isCompiling.value) return // Prevent multiple compile runs
+        _isCompiling.value = true
 
-        if (_simulatorSuccess.value) {
-            completeOnboardingPhase("activate")
+        viewModelScope.launch {
+            delay(1200) // Fast realistic compiler run simulation
+
+            when (currentLesson.category) {
+                "HTML" -> {
+                    if (currentCode.contains("<h1>") && currentCode.contains("</h1>") && currentCode.lowercase().contains("spaza")) {
+                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\nHeading size h1: \"Mam's Spaza Shop\" with warm gold colors."
+                        _simulatorSuccess.value = true
+                    } else if (currentCode.contains("<ul>") && currentCode.contains("</ul>")) {
+                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound elements: Bread, Milk, Rooibos Tea."
+                        _simulatorSuccess.value = true
+                    } else {
+                        _simulatorOutput.value = "Web Preview Output:\n--------------------\n" + currentCode + "\n--------------------\nTip: Make sure to wrap headings in <h1>...</h1> or make lists using <ul> and <li>!"
+                        _simulatorSuccess.value = false
+                    }
+                }
+                "CSS" -> {
+                    if (currentCode.contains("background-color") && currentCode.contains("color")) {
+                        _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
+                        _simulatorSuccess.value = true
+                    } else {
+                        _simulatorOutput.value = "CSS compiler output:\nModified style sheets rules. Use background-color and color to configure colors!"
+                        _simulatorSuccess.value = false
+                    }
+                }
+                "JavaScript" -> {
+                    if (currentCode.contains("calculateTotal") && currentCode.contains("18.50")) {
+                        _simulatorOutput.value = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.5 + 3*16 = 37 + 48 = 85)."
+                        _simulatorSuccess.value = true
+                    } else {
+                        _simulatorOutput.value = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined or code incomplete. Write the calculateTotal function!"
+                        _simulatorSuccess.value = false
+                    }
+                }
+                "Python" -> {
+                    if (currentCode.contains("temp > 30") && currentCode.contains("print")) {
+                        _simulatorOutput.value = "🐍 Python Terminal Output:\nWarning: High Heat! Increase irrigation x2.\n\n✅ Algorithm completed successfully!"
+                        _simulatorSuccess.value = true
+                    } else {
+                        _simulatorOutput.value = "🐍 Python IDLE Console:\nError: IndentationError or missing conditional comparison condition temperature > 30."
+                        _simulatorSuccess.value = false
+                    }
+                }
+            }
+
+            if (_simulatorSuccess.value) {
+                completeOnboardingPhase("activate")
+            }
+            _isCompiling.value = false
         }
     }
 
@@ -464,14 +512,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Community section - Add post
     fun addForumPost(content: String) {
-        if (content.trim().isEmpty()) return
+        val trimmed = content.trim()
+        if (trimmed.isEmpty()) return
+        if (trimmed.length > 500) {
+            android.widget.Toast.makeText(getApplication(), "Post is too long (max 500 characters)!", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val lowerContent = trimmed.lowercase()
+        val blockedWords = listOf("bypass", "unauthorized", "hack", "vulgar", "profanity") // custom placeholder blocked words
+        if (blockedWords.any { lowerContent.contains(it) }) {
+            android.widget.Toast.makeText(getApplication(), "Your post contains blocked or unsafe words. Let's keep the community safe and encouraging!", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         viewModelScope.launch {
             val profile = userProfile.value ?: return@launch
             val newPost = DiscussionPost(
                 id = "post_${System.currentTimeMillis()}",
                 author = profile.name + " (" + (if (profile.role == "Mama") "Mama" else "Student") + ")",
                 role = profile.role,
-                content = content,
+                content = trimmed,
                 timestamp = System.currentTimeMillis(),
                 likes = 0,
                 commentCount = 0,
@@ -489,9 +548,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // AI chat - send message
     fun sendAiChat(messageText: String) {
-        if (messageText.trim().isEmpty()) return
+        val trimmed = messageText.trim()
+        if (trimmed.isEmpty() || _aiGenerating.value) return
         viewModelScope.launch {
-            val userMsg = MentorChat(isAi = true, isUser = true, messageText = messageText)
+            val userMsg = MentorChat(isAi = true, isUser = true, messageText = trimmed)
             repository.insertChatMessage(userMsg)
 
             _aiGenerating.value = true
@@ -499,13 +559,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Generate response
             if (!_isOnline.value) {
                 delay(1200) // fast realistic delay offline simulation
-                val fallbackReply = generateOfflineRecommendation(messageText)
+                val fallbackReply = generateOfflineRecommendation(trimmed)
                 repository.insertChatMessage(MentorChat(isAi = true, isUser = false, messageText = fallbackReply))
                 _aiGenerating.value = false
             } else {
                 // Create context prompt
                 val systemPrompt = "You are an empathetic, patient, and highly encouraging AI Tutor for KodeMamas. Your students are South African township mothers and young girls learning to code. You are fluent in all 11 official South African languages (English, Zulu, Xhosa, Afrikaans, Sepedi, Setswana, Sesotho, Xitsonga, siSwati, Tshivenda, isiNdebele) and South African Sign Language (SASL) notation. You MUST respond in the language the student addresses you in, or if they ask to explain something in any of the 12 languages, do so warmly. Explain the login/account creation screen (name input, selecting from 12 South African languages, and choosing role of Mama, Student, or Mentor) and explain the content after logging in (the Dashboard with 100-Day Onboarding Phase tracker and visual wins; the Learn tab with 10 interactive lessons; the Code compiler simulator; the Community forum; and study Buddies) in their requested language. Never write code for them directly; guide them step-by-step. Keep explanations short, simple, and under 150 words."
-                val aiResponse = GeminiService.generateResponse(messageText, systemPrompt)
+                val aiResponse = GeminiService.generateResponse(trimmed, systemPrompt)
                 repository.insertChatMessage(MentorChat(isAi = true, isUser = false, messageText = aiResponse))
                 _aiGenerating.value = false
             }
@@ -583,9 +643,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // 1-on-1 mentorship chat with Nokwazi
     fun sendMentorChat(messageText: String) {
-        if (messageText.trim().isEmpty()) return
+        val trimmed = messageText.trim()
+        if (trimmed.isEmpty() || _mentorTyping.value) return
         viewModelScope.launch {
-            val userMsg = MentorChat(isAi = false, isUser = true, messageText = messageText)
+            val userMsg = MentorChat(isAi = false, isUser = true, messageText = trimmed)
             repository.insertChatMessage(userMsg)
 
             _mentorTyping.value = true

@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Fundza kukhoda ngelulwimi lwakho</string>
+    <string name="offline_online">Tifundvo te-Offline ne-Online</string>
+    <string name="built_for_sa">Yentelwe imiphakatsi yaseNingizimu Afrika</string>
+    <string name="get_started">Asicale</string>
+    <string name="dashboard">Ideshibhodi</string>
+    <string name="lessons">Tifundvo</string>
+    <string name="quizzes">Imibuto</string>
+    <string name="ai_assistant">Mshini we-AI wokusita</string>
+    <string name="community">Sive setfu</string>
+    <string name="profile">Iphrofayili yami</string>
+    <string name="premium">Kuceceshwa</string>
+    <string name="total_xp">XP Seisonke</string>
+    <string name="streak">Malanga lalandzelanako</string>
+    <string name="unlocked">Kuvuliwe</string>
+    <string name="locked">Kuvaliwe</string>
+    <string name="downloaded">Kulandiwe</string>
+    <string name="download_class">Landa Sifundvo simanjemanje</string>
+    <string name="data_saver">Konga Idatha</string>
+    <string name="online_status">Umanjemanje</string>
+    <string name="offline_status">Ngaphandle kwenethiwekhi</string>
+    <string name="ask_something">Mbutise umbulo wekhodingi…</string>
+</resources>

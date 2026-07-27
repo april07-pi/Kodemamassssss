@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Ithute go khouta ka puo ya gago</string>
+    <string name="offline_online">Dithuto tsa Offline le Online</string>
+    <string name="built_for_sa">E kailwe go tshegetsa Ma-Afrika-Borwa</string>
+    <string name="get_started">A re Simolole</string>
+    <string name="dashboard">Letlhare la Taolo</string>
+    <string name="lessons">Dithuto</string>
+    <string name="quizzes">Dipotso tsa Botlhale</string>
+    <string name="ai_assistant">Mothusi wa AI</string>
+    <string name="community">Lekgotla la Rona</string>
+    <string name="profile">Porofele yame</string>
+    <string name="premium">Thuto-Mogolo</string>
+    <string name="total_xp">XP Gotlhe</string>
+    <string name="streak">Malatsi a go latelana</string>
+    <string name="unlocked">E buletswe</string>
+    <string name="locked">E tswetswe</string>
+    <string name="downloaded">E laotswe</string>
+    <string name="download_class">Laolla Thuto e</string>
+    <string name="data_saver">Mo-Sete-Datha</string>
+    <string name="online_status">O Online</string>
+    <string name="offline_status">O Offline</string>
+    <string name="ask_something">Ke go thuse ka potso efe ya khouthu…</string>
+</resources>

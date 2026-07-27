@@ -17,10 +17,42 @@ object GeminiService {
         .readTimeout(45, TimeUnit.SECONDS)
         .build()
 
+    private fun containsPromptInjection(prompt: String): Boolean {
+        val lower = prompt.lowercase().trim()
+        val patterns = listOf(
+            "ignore previous instructions",
+            "ignore the instructions",
+            "system prompt",
+            "forget what you",
+            "you are now a",
+            "act as a",
+            "bypass",
+            "override instructions",
+            "do anything now",
+            "dan mode",
+            "jailbreak",
+            "ignore rules"
+        )
+        return patterns.any { lower.contains(it) }
+    }
+
     suspend fun generateResponse(prompt: String, systemInstruction: String = ""): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY" || apiKey == "GEMINI_API_KEY") {
             return@withContext "Sanibonani! I am in Offline/Local Mode right now. To enable real-time AI calculations, please add a valid GEMINI_API_KEY to your AI Studio Secrets panel!"
+        }
+
+        val trimmedPrompt = prompt.trim()
+        if (trimmedPrompt.isEmpty()) {
+            return@withContext "Sanibonani! Your message is empty. Please ask a coding or business question!"
+        }
+
+        if (trimmedPrompt.length > 2000) {
+            return@withContext "Oops! That message is a bit too long for our township offline data saver networks. Please keep your question under 2000 characters so we can respond quickly!"
+        }
+
+        if (containsPromptInjection(trimmedPrompt)) {
+            return@withContext "Sanibonani! I am your KodeMamas AI tutor. To keep our platform safe and friendly, I can only discuss coding lessons (HTML, CSS, JS, Python) and small business growth strategies. Let's learn to code together!"
         }
 
         // Try modern, non-prohibited Gemini models as per platform guidelines.
@@ -40,7 +72,7 @@ object GeminiService {
             val partsArray = JSONArray()
             val partObj = JSONObject()
             
-            partObj.put("text", prompt)
+            partObj.put("text", trimmedPrompt)
             partsArray.put(partObj)
             contentObj.put("parts", partsArray)
             contentsArray.put(contentObj)

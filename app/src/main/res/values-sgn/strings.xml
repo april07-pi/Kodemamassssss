@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Learn coding in Sign Language (SASL)</string>
+    <string name="offline_online">Visual Offline &amp; Online Lessons</string>
+    <string name="built_for_sa">Built for Deaf &amp; Hearing South Africans</string>
+    <string name="get_started">Start learning (Visual)</string>
+    <string name="dashboard">Visual Board</string>
+    <string name="lessons">Visual Lessons</string>
+    <string name="quizzes">Visual Quizzes</string>
+    <string name="ai_assistant">Visual AI Chat</string>
+    <string name="community">Deaf Community Space</string>
+    <string name="profile">My Profile (Visual)</string>
+    <string name="premium">SASL Sign Mentorship</string>
+    <string name="total_xp">Visual XP Score</string>
+    <string name="streak">Daily Video Streak</string>
+    <string name="unlocked">Unlocked Video</string>
+    <string name="locked">Locked Video</string>
+    <string name="downloaded">Saved Offline</string>
+    <string name="download_class">Download Signed Video</string>
+    <string name="data_saver">Video Quality Saver</string>
+    <string name="online_status">Stream Live Video</string>
+    <string name="offline_status">Viewing Offline Videos</string>
+    <string name="ask_something">Ask code (Signs or Texts)…</string>
+</resources>

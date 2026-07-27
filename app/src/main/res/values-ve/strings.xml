@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Gudani u khoda nga luambo lwanu</string>
+    <string name="offline_online">Ngudo dza Offline na Online</string>
+    <string name="built_for_sa">Yo fhatelwa zwitshavha zwa Afrika Tshipembe</string>
+    <string name="get_started">Kha ri thome</string>
+    <string name="dashboard">Bodo ya u laola</string>
+    <string name="lessons">Ngudo</string>
+    <string name="quizzes">Mbudziso</string>
+    <string name="ai_assistant">Muthusi wa AI</string>
+    <string name="community">Tshitshavha tshashu</string>
+    <string name="profile">Phurofayili yanga</string>
+    <string name="premium">Vhulanga-ndaela</string>
+    <string name="total_xp">XP yothe</string>
+    <string name="streak">Maduvha o teledzanaho</string>
+    <string name="unlocked">Zwo vhululwaho</string>
+    <string name="locked">Zwo khiwiwaho</string>
+    <string name="downloaded">Zwo tangohedzwaho</string>
+    <string name="download_class">Kokiwa Ngudo hei</string>
+    <string name="data_saver">U vhulunga Data</string>
+    <string name="online_status">Kha Inthanete</string>
+    <string name="offline_status">Nnda ha Inthanete</string>
+    <string name="ask_something">Nvhudziseni mbudziso ya u khoda…</string>
+</resources>

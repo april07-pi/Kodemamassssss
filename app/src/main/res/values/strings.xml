@@ -1,3 +1,24 @@
 <resources>
     <string name="app_name">KodeMamas</string>
+    <string name="learn_coding">Learn coding in your language</string>
+    <string name="offline_online">Offline + Online Lessons</string>
+    <string name="built_for_sa">Built for South African Communities</string>
+    <string name="get_started">Let\'s Begin</string>
+    <string name="dashboard">Dashboard</string>
+    <string name="lessons">Lessons</string>
+    <string name="quizzes">Quizzes</string>
+    <string name="ai_assistant">AI Chatbot</string>
+    <string name="community">Community</string>
+    <string name="profile">My Profile</string>
+    <string name="premium">Mentorship</string>
+    <string name="total_xp">Total XP</string>
+    <string name="streak">Streak Days</string>
+    <string name="unlocked">Unlocked</string>
+    <string name="locked">Locked</string>
+    <string name="downloaded">Downloaded</string>
+    <string name="download_class">Download Lesson</string>
+    <string name="data_saver">Data-Saving Mode</string>
+    <string name="online_status">Online Mode</string>
+    <string name="offline_status">Offline Mode</string>
+    <string name="ask_something">Ask me a coding question…</string>
 </resources>
