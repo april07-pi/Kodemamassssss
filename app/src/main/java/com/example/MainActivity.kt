@@ -745,7 +745,6 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
     val activeChallenge by viewModel.activeChallenge.collectAsState()
 
     var showCertificateDialog by remember { mutableStateOf(false) }
-    var showLanguagePickerFromHub by remember { mutableStateOf(false) }
 
     // Navigation sub-state for the dashboard category switcher
     var activeSubSection by remember { mutableStateOf("dashboard") } // dashboard, pathways, parent, school, analytics, viral
@@ -905,15 +904,6 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
         contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Prominent Language Toggle Hub
-        item {
-            SouthAfricanLanguageHub(
-                currentLangCode = langCode,
-                onLangSelected = { viewModel.changeLanguage(it) },
-                onShowAllLanguages = { showLanguagePickerFromHub = true }
-            )
-        }
-
         // Horizontal Category Tabs Hub
         item {
             val categories = listOf(
@@ -2675,17 +2665,6 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                 }
             }
         }
-    }
-
-    if (showLanguagePickerFromHub) {
-        LanguagePickerDialog(
-            currentLangCode = langCode,
-            onDismiss = { showLanguagePickerFromHub = false },
-            onLangSelected = { code ->
-                viewModel.changeLanguage(code)
-                showLanguagePickerFromHub = false
-            }
-        )
     }
 }
 
