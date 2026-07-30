@@ -45,12 +45,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 // Theme color duplicates to ensure compile-safety
-val ThemeIndigo = Color(0xFF4B0082) // Main Artistic Flair deep indigo/purple
-val ThemeGold = Color(0xFFFFD700)   // Bright South African Gold accent
-val ThemeGoldLight = Color(0xFFFFF2B2)
-val ThemeSoftBg = Color(0xFFFAF9FF) // Light artistic lavender white
-val ThemeCardBorder = Color(0xFFE5E0FA)
-val ThemeDarkBg = Color(0xFF0C0714) // Rich night background
+val ThemeIndigo = Color(0xFF3B0764) // Deep royal purple primary theme
+val ThemeGold = Color(0xFFFBBF24)   // Vibrant golden yellow accent
+val ThemeGoldLight = Color(0xFFFEF3C7)
+val ThemeSoftBg = Color(0xFF2E0A4E) // Deep royal purple as primary background color
+val ThemeCardBorder = Color(0xFFE9D5FF).copy(alpha = 0.6f)
+val ThemeDarkBg = Color(0xFF1E0638) // Rich night background
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -943,120 +943,118 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
         }
 
         if (activeSubSection == "dashboard") {
-            // Welcome Hero banner following Artistic Flair mockup
+            // User Profile Card (Screen Element 2)
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(28.dp))
+                        .clip(RoundedCornerShape(24.dp))
                         .background(Color.White)
-                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(28.dp))
-                        .padding(20.dp)
+                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
+                        .padding(18.dp)
                 ) {
-                    // Emerald local downloaded pills representing township accessibility
                     Row(
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE6F4EA))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "OFFLINE COMPILER",
-                                color = Color(0xFF137333),
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-
-                    Column {
-                        Text(
-                            text = Localization.translate("learn_coding", langCode) + "!",
-                            color = Color.Black,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
-                            lineHeight = 26.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Build digital storefronts, smart predictive crops modules, and master technology at your own pace.",
-                            color = Color.Gray,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
                         Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
                         ) {
-                            Button(
-                                onClick = {
-                                    // Find first playable lesson or navigate to Learn tab
-                                    val firstPlayable = lessons.find { it.isUnlocked } ?: lessons.firstOrNull()
-                                    firstPlayable?.let { viewModel.selectLesson(it) }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                                shape = RoundedCornerShape(14.dp),
-                                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp)
+                            // Profile letter avatar "N"
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(ThemeGold),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = Localization.translate("get_started", langCode),
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = "N",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 22.sp,
+                                    color = Color(0xFF2E0A4E)
                                 )
                             }
 
-                            Button(
-                                onClick = onShowOnboarding,
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                                shape = RoundedCornerShape(14.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "Welcome Screen",
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column {
                                 Text(
-                                    text = "Welcome Screen",
-                                    color = Color.Black,
+                                    text = "Mam a • Bloemfontein Hub",
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    lineHeight = 20.sp
+                                )
+                                Text(
+                                    text = "KodeMamas Tech Scholar",
+                                    color = Color.Gray,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
+                        }
 
-                            // Data Saver toggle switch
-                            userProfile?.let { profile ->
-                                Button(
-                                    onClick = { viewModel.toggleDataSavingMode(!profile.dataSavingMode) },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (profile.dataSavingMode) Color(0xFFE8F0FE) else Color.Gray.copy(alpha = 0.08f)
-                                    ),
-                                    shape = RoundedCornerShape(14.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Gamification metrics
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // 210 XP metric pill
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFFFFBEB))
+                                    .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = if (profile.dataSavingMode) Icons.Default.SignalCellularAlt2Bar else Icons.Default.SignalCellularAlt,
-                                        contentDescription = "Data Saver",
-                                        tint = if (profile.dataSavingMode) Color(0xFF1A73E8) else Color.DarkGray,
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "XP",
+                                        tint = Color(0xFFF59E0B),
                                         modifier = Modifier.size(16.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = Localization.translate("data_saver", langCode),
-                                        color = if (profile.dataSavingMode) Color(0xFF1A73E8) else Color.DarkGray,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
+                                        text = "210 XP",
+                                        color = Color(0xFFB45309),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            // 3 Day Streak metric pill
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFFFF7ED))
+                                    .border(1.dp, Color(0xFFFED7AA), RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Whatshot,
+                                        contentDescription = "Streak",
+                                        tint = Color(0xFFEA580C),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "3 Day Streak",
+                                        color = Color(0xFFC2410C),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.sp
                                     )
                                 }
                             }
@@ -1065,42 +1063,117 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                 }
             }
 
-            // Expert Quick Continue Study shortcut item
+            // Mid-Section Grid: Two symmetrical equal-height cards side-by-side (Screen Element 3)
             item {
-                val nextLessonToStudy = lessons.find { it.isUnlocked } ?: lessons.firstOrNull()
-                nextLessonToStudy?.let { lesson ->
-                    androidx.compose.material3.Card(
-                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFFF3E8FF)),
-                        border = BorderStroke(1.dp, Color(0xFFD8B4FE)),
-                        shape = RoundedCornerShape(20.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Left Card: OFFLINE LESSONS
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clickable { viewModel.selectLesson(lesson) }
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(Color.White)
+                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(22.dp))
+                            .clickable { viewModel.downloadAllLessons() }
+                            .padding(16.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayCircle,
-                                contentDescription = "Quick Study",
-                                tint = ThemeIndigo,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF3E8FF)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudDownload,
+                                    contentDescription = "Offline Cache",
+                                    tint = Color(0xFF6D28D9),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
                             Column {
                                 Text(
-                                    text = "EXPERT SHORTCUT: NEXT LESSON",
-                                    fontSize = 9.sp,
+                                    text = "OFFLINE LESSONS",
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = ThemeIndigo
+                                    color = Color(0xFF6D28D9),
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "All 10 Saved",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937)
+                                )
+                            }
+                        }
+                    }
+
+                    // Right Card: MY CERTIFICATE
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(Color.White)
+                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(22.dp))
+                            .clickable { showCertificateDialog = true }
+                            .padding(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFEF3C7)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.WorkspacePremium,
+                                    contentDescription = "Certificates",
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Column {
+                                Text(
+                                    text = "MY CERTIFICATE",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFD97706),
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Claim Certificate",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937)
                                 )
                                 Text(
-                                    text = "Continue Studying: ${lesson.title}",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
+                                    text = "Bloemfontein Hub Certified",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray,
+                                    lineHeight = 14.sp
                                 )
                             }
                         }
@@ -1108,182 +1181,82 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                 }
             }
 
-            // 100-Day Journey Progress Tracking Section
+            // Challenge Card (Screen Element 4)
             item {
-                OnboardingJourneyWidget(viewModel = viewModel, langCode = langCode)
-            }
-
-            // Stats rows (Streak, Completed Lessons, Offline downloads)
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color.White)
+                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
+                        .padding(18.dp)
                 ) {
-                    // Card 1: Offline Lesson Downloads
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .clickable { viewModel.downloadAllLessons() }
-                            .padding(14.dp)
-                    ) {
-                        Column {
-                            Icon(
-                                imageVector = Icons.Default.CloudDownload,
-                                contentDescription = "Offline Cache",
-                                tint = ThemeIndigo,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "OFFLINE LESSONS",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Black,
-                                color = ThemeIndigo
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            val downloadedCount = lessons.count { it.isDownloaded }
-                            Text(
-                                text = if (userProfile?.hasDownloadedOffline == true || downloadedCount == lessons.size) "All ${lessons.size} Saved" else "$downloadedCount/${lessons.size} Saved",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                            Text(
-                                text = "Tap to save mobile data",
-                                fontSize = 9.sp,
-                                color = Color.Gray
-                            )
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Whatshot,
+                                    contentDescription = "Daily challenge",
+                                    tint = Color(0xFFEA580C),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "NTLHONTLO WA SIKU",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF2E0A4E),
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFFEF3C7))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "ACTIVE",
+                                    color = Color(0xFFB45309),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
-                    }
 
-                    // Card 2: Career & Certificate Status
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(ThemeDarkBg)
-                            .border(1.dp, ThemeCardBorder.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-                            .clickable { showCertificateDialog = true }
-                            .padding(14.dp)
-                    ) {
-                        Column {
-                            Icon(
-                                imageVector = Icons.Default.BookmarkAdded,
-                                contentDescription = "Certificates",
-                                tint = ThemeGold,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Mama's Bakery Order System - Mama Thoko makes fresh township muffins in Umlazi. She charges R8 per muffin. Calculate total price for 12 muffins in JS.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF374151),
+                            lineHeight = 19.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                val challenge = challenges.firstOrNull()
+                                if (challenge != null) {
+                                    viewModel.setActiveChallenge(challenge)
+                                    viewModel.solveChallenge()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E0A4E)),
+                            shape = RoundedCornerShape(16.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(
-                                text = "MY CERTIFICATE",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Black,
-                                color = ThemeGold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Claim Certificate",
-                                fontSize = 14.sp,
+                                text = "Accept Challenge & Run Calculation",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
-                            Text(
-                                text = "Bloemfontein Hub Certified",
-                                fontSize = 9.sp,
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Daily Coding Challenge Interactive segment
-            item {
-                val challenge = challenges.firstOrNull()
-                if (challenge != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
-                            .padding(16.dp)
-                    ) {
-                        Column {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Whatshot,
-                                        contentDescription = "Daily challenge",
-                                        tint = Color(0xFFFF5722),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = Localization.translate("daily_challenges", langCode).uppercase(),
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 12.sp,
-                                        color = Color(0xFFFF5722)
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (challenge.isCompleted) Color(0xFFE6F4EA) else Color(0xFFFEF7E0))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = if (challenge.isCompleted) "SOLVED (+20 XP)" else "ACTIVE",
-                                        color = if (challenge.isCompleted) Color(0xFF137333) else Color(0xFFB06000),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = challenge.title,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color.Black
-                            )
-                            Text(
-                                text = challenge.description,
-                                fontSize = 12.sp,
-                                color = Color.Gray,
-                                lineHeight = 16.sp
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-                            if (!challenge.isCompleted) {
-                                Button(
-                                    onClick = {
-                                        viewModel.setActiveChallenge(challenge)
-                                        // solve challenge directly
-                                        viewModel.solveChallenge()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Text(text = "Accept Challenge & Run Calculation", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-                            } else {
-                                Text(
-                                    text = "Well done! Your baking order calculations are compile-accurate. You've earned 20 XP!",
-                                    color = Color(0xFF2E7D32),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
                 }
