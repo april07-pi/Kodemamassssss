@@ -158,6 +158,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
                             ) { tab ->
                                 when (tab) {
                                     "home" -> DashboardTab(viewModel = viewModel, langCode = langCode, onShowOnboarding = { showOnboarding = true })
+                                    "builds" -> BuildsTab(viewModel = viewModel, langCode = langCode)
                                     "learn" -> LearnTab(viewModel = viewModel, langCode = langCode)
                                     "ai_chat" -> AiChatTab(viewModel = viewModel, langCode = langCode)
                                     "community" -> CommunityTab(viewModel = viewModel, langCode = langCode)
@@ -685,8 +686,9 @@ fun AppBottomNavigation(
     ) {
         val items = listOf(
             Triple("home", Icons.Default.Home, Localization.translate("dashboard", langCode)),
+            Triple("builds", Icons.Default.Build, "Builds"),
             Triple("learn", Icons.Default.School, Localization.translate("lessons", langCode)),
-            Triple("ai_chat", Icons.Default.Assistant, Localization.translate("ai_assistant", langCode)),
+            Triple("ai_chat", Icons.Default.Assistant, "AI Coach"),
             Triple("community", Icons.Default.Forum, Localization.translate("community", langCode)),
             Triple("mentorship", Icons.Default.CardMembership, Localization.translate("premium", langCode))
         )
@@ -702,17 +704,17 @@ fun AppBottomNavigation(
                         contentDescription = label,
                         tint = if (isSelected) ThemeIndigo else Color.Gray.copy(alpha = 0.7f),
                         modifier = Modifier
-                            .size(22.dp)
-                            .padding(bottom = 4.dp) // Pushes icon away from label slightly to prevent overlaps
+                            .size(20.dp)
                     )
                 },
                 label = {
                     Text(
                         text = label,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) ThemeIndigo else Color.Gray,
-                        modifier = Modifier.padding(top = 4.dp) // Extra vertical separation
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -2765,6 +2767,1487 @@ fun SouthAfricanLanguageHub(
             }
         }
     }
+}
+
+// ---------------------- PASSPORT, PORTFOLIO & SCHOOL HUB COMPOSABLES ----------------------
+@Composable
+fun PassportAndPortfolioView(langCode: String) {
+    var showShareSnackbar by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // LIVING RECORD OF EVIDENCE: PASSPORT CARD
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E0638)),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(ThemeGold)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text("VERIFIED PASSPORT 🇿🇦", color = Color(0xFF2E0A4E), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Text("ID: KM-2026-8834", color = ThemeGoldLight, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(ThemeGold),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("👩‍💻", fontSize = 28.sp)
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column {
+                        Text("Nokwazi Nobuhle Xaba", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                        Text("KodeMamas Junior Technology Builder", color = ThemeGoldLight, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Bloemfontein Central High • Grade 11", color = Color.LightGray, fontSize = 10.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = Localization.translate("evidence_record", langCode).uppercase(),
+                    color = ThemeGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.5.sp
+                )
+
+                Text(
+                    text = "This living record of evidence is infinitely more meaningful than a paper course certificate.",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                )
+
+                // Grid of metrics:
+                val metrics = listOf(
+                    Triple("📁 Projects", "6", "Full-stack builds"),
+                    Triple("🔎 Problems Investigated", "4", "Field research cards"),
+                    Triple("🚀 Prototypes", "5", "Working web apps"),
+                    Triple("⚡ Skills Demonstrated", "17", "Verified badges"),
+                    Triple("🗣️ Users Interviewed", "23", "Community members"),
+                    Triple("🧪 Projects Tested", "4", "User testing rounds"),
+                    Triple("🤝 Team Projects", "2", "Collaborative builds")
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    metrics.forEach { (label, count, subtext) ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column {
+                                Text(count, color = ThemeGold, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(subtext, color = Color.LightGray, fontSize = 9.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // AUTO-GENERATED PORTFOLIO SECTION
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "AUTO-GENERATED PORTFOLIO",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF2E0A4E)
+                )
+                Text(
+                    text = "Ready to share with parents, teachers, universities, & employers",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+
+            Button(
+                onClick = { showShareSnackbar = true },
+                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color(0xFF2E0A4E), modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Share Portfolio", color = Color(0xFF2E0A4E), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+
+        if (showShareSnackbar) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFD1FAE5))
+                    .border(1.dp, Color(0xFF10B981), RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = "✓ Verifiable Portfolio Link Copied! Ready to submit to universities, scholarship programs, & employers.",
+                    color = Color(0xFF065F46),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // MY BUILD STRUCTURED PORTFOLIO CARDS
+        PortfolioBuildCard(
+            title = "School Announcement Board",
+            problem = "Students miss critical exam and assignment dates because paper notice boards are cluttered and outdated.",
+            research = "Interviewed 23 township high school students & 4 teachers in Bloemfontein.",
+            solution = "A lightweight mobile web announcement dashboard with offline caching.",
+            technologyUsed = "HTML5, CSS Flexbox, JavaScript ES6, LocalStorage, Progressive Web App",
+            whatBuilt = "Interactive notice posting feed with subject filtering and date countdowns.",
+            whatFailed = "Initial attempt used a heavy external database that loaded too slowly on low-data 3G.",
+            whatChanged = "Replaced external calls with client-side LocalStorage cache to protect student mobile data.",
+            whatLearned = "DOM manipulation, event delegation, responsive layouts, and data optimization.",
+            demoUrl = "https://kodemamas.app/builds/school-announcements",
+            githubUrl = "https://github.com/nokwazi/school-announcement-board"
+        )
+
+        PortfolioBuildCard(
+            title = "Spaza Shop Inventory Tracker",
+            problem = "Local township spaza shop owners lose track of expiring bread and dairy items.",
+            research = "Spent 3 days surveying 8 local shop owners in Mangaung.",
+            solution = "Color-coded stock tracker with automatic expiry alert warnings.",
+            technologyUsed = "JavaScript, CSS Grid, LocalStorage Data Persistence",
+            whatBuilt = "Visual inventory table with automated Rand profit total calculation.",
+            whatFailed = "Complex table design was hard to read on cheap low-resolution smartphones.",
+            whatChanged = "Redesigned into large touch cards with high-contrast text.",
+            whatLearned = "User testing with non-tech-savvy users and touch target sizing.",
+            demoUrl = "https://kodemamas.app/builds/spaza-tracker",
+            githubUrl = "https://github.com/nokwazi/spaza-inventory-tracker"
+        )
+    }
+}
+
+@Composable
+fun PortfolioBuildCard(
+    title: String,
+    problem: String,
+    research: String,
+    solution: String,
+    technologyUsed: String,
+    whatBuilt: String,
+    whatFailed: String,
+    whatChanged: String,
+    whatLearned: String,
+    demoUrl: String,
+    githubUrl: String
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, ThemeCardBorder),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "MY BUILD: $title", fontWeight = FontWeight.Black, fontSize = 14.sp, color = ThemeIndigo)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFDCFCE7))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text("Verified Build", color = Color(0xFF15803D), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Divider(color = Color(0xFFF3F4F6))
+
+            PortfolioDetailItem("📌 Problem Statement", problem, Color(0xFF991B1B))
+            PortfolioDetailItem("🔎 Field Research", research, Color(0xFF1E40AF))
+            PortfolioDetailItem("💡 Solution Concept", solution, Color(0xFF065F46))
+            PortfolioDetailItem("💻 Technology Used", technologyUsed, Color(0xFF6B21A8))
+            PortfolioDetailItem("🛠️ What I Built", whatBuilt, Color(0xFF1F2937))
+            PortfolioDetailItem("⚠️ What Failed", whatFailed, Color(0xFFB91C1C))
+            PortfolioDetailItem("🔧 What I Changed", whatChanged, Color(0xFFD97706))
+            PortfolioDetailItem("🧠 What I Learned", whatLearned, Color(0xFF047857))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFEEF2FF))
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🌐 Demo: $demoUrl", fontSize = 9.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF3F4F6))
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("📦 GitHub: $githubUrl", fontSize = 9.sp, color = Color.DarkGray, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PortfolioDetailItem(label: String, detail: String, accentColor: Color) {
+    Column {
+        Text(text = label, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = accentColor)
+        Text(text = detail, fontSize = 11.sp, color = Color.DarkGray, lineHeight = 15.sp)
+    }
+}
+
+// Composable: KodeMamas School Hub (Teacher Dashboard View)
+@Composable
+fun SchoolHubView(langCode: String) {
+    var selectedClassroom by remember { mutableStateOf("Grade 10B - Bloemfontein High") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Teacher Dashboard Header Banner
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E0A4E)),
+            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(ThemeGold)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text("KODEMAMAS SCHOOL HUB 🏫", color = Color(0xFF2E0A4E), fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+
+                    Text("Teacher Mode Active", color = ThemeGoldLight, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "TEACHER DASHBOARD",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black
+                )
+
+                Text(
+                    text = "Track learners, active problem builds, skill mastery, and AI intervention insights.",
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Classroom selector pills
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Grade 10B - Bloemfontein High", "Grade 11A - Mangaung Sec", "Grade 9C - Botshabelo Hub").forEach { cls ->
+                        val isSelected = selectedClassroom == cls
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) ThemeGold else Color.White.copy(alpha = 0.15f))
+                                .clickable { selectedClassroom = cls }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = cls,
+                                color = if (isSelected) Color(0xFF2E0A4E) else Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Classroom High-level Metrics Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MetricPill("Learners", "34", "Active Builders", Color(0xFFEEF2FF), ThemeIndigo)
+            MetricPill("Projects", "12", "In Progress", Color(0xFFFEF3C7), Color(0xFFB45309))
+            MetricPill("Completion", "78%", "On Track", Color(0xFFD1FAE5), Color(0xFF065F46))
+            MetricPill("Skills", "142", "Mastered", Color(0xFFF3E8FF), Color(0xFF6B21A8))
+        }
+
+        // STRUGGLING CONCEPTS & CHALLENGES HEAT MAP
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, ThemeCardBorder),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "⚠️ " + Localization.translate("struggling_concepts", langCode).uppercase() + " & AI INTERVENTIONS",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    color = Color(0xFFB91C1C)
+                )
+                Text(
+                    text = "Real-time diagnostic of where learners hit bugs or roadblocks",
+                    fontSize = 10.sp,
+                    color = Color.Gray
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                StrugglingConceptItem(
+                    concept = "JavaScript Event Listeners (addEventListener)",
+                    strugglePercent = 42,
+                    affectCount = "14 / 34 learners struggling",
+                    aiSuggestion = "Assign 3-minute Tiny Learning Mission: 'Make Button Work' to Grade 10B."
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                StrugglingConceptItem(
+                    concept = "CSS Flexbox Center Alignment",
+                    strugglePercent = 25,
+                    affectCount = "8 / 34 learners struggling",
+                    aiSuggestion = "Recommend Spaza Shop Layout exercise with live preview."
+                )
+            }
+        }
+
+        // LEARNERS ROSTER & BUILD PROGRESS
+        Text(
+            text = "CLASSROOM LEARNER ROSTER ($selectedClassroom)",
+            fontWeight = FontWeight.Black,
+            fontSize = 12.sp,
+            color = Color(0xFF2E0A4E)
+        )
+
+        val learners = listOf(
+            Triple("Nokwazi Xaba", "School Announcement Board", "Stage 5: Test Passed (85% built)"),
+            Triple("Sipho Dlamini", "Water Outage SMS Alert", "Stage 4: Building JS Logic (60% built)"),
+            Triple("Thabo Mokoena", "Spaza Shop Stock Tracker", "Stage 6: User Testing (90% built)"),
+            Triple("Zinhle Ndlovu", "Local Language Quiz", "Stage 3: Design Wireframe (35% built)")
+        )
+
+        learners.forEach { (student, buildTitle, stage) ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, ThemeCardBorder),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(ThemeIndigo.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(student.take(1), fontWeight = FontWeight.Bold, color = ThemeIndigo, fontSize = 14.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Text(student, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.DarkGray)
+                            Text(buildTitle, fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.SemiBold)
+                            Text(stage, fontSize = 9.sp, color = Color.Gray)
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFFAF5FF))
+                            .border(1.dp, Color(0xFFE9D5FF), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("View Passport", color = Color(0xFF6B21A8), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RowScope.MetricPill(title: String, value: String, subtext: String, bgColor: Color, textColor: Color) {
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(14.dp))
+            .background(bgColor)
+            .padding(10.dp)
+    ) {
+        Column {
+            Text(value, fontSize = 16.sp, fontWeight = FontWeight.Black, color = textColor)
+            Text(title, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+            Text(subtext, fontSize = 8.sp, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun StrugglingConceptItem(concept: String, strugglePercent: Int, affectCount: String, aiSuggestion: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFFEF2F2))
+            .border(1.dp, Color(0xFFFCA5A5), RoundedCornerShape(12.dp))
+            .padding(12.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(concept, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF991B1B))
+                Text("$strugglePercent% High Risk", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFDC2626))
+            }
+
+            Text(affectCount, fontSize = 9.sp, color = Color.DarkGray)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White)
+                    .padding(8.dp)
+            ) {
+                Text("🤖 AI Intervention: $aiSuggestion", fontSize = 9.sp, color = Color(0xFF1E40AF), fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+// ---------------------- TAB: PROBLEM TO PROTOTYPE BUILDS ----------------------
+@Composable
+fun BuildsTab(viewModel: MainViewModel, langCode: String) {
+    val builds by viewModel.allBuilds.collectAsState()
+    var showProblemLab by remember { mutableStateOf(false) }
+    var selectedCategoryFilter by remember { mutableStateOf("all") }
+    var activeHintLevel by remember { mutableStateOf(0) } // 0=none, 1=hint1, 2=hint2, 3=hint3
+    var activeSubSection by remember { mutableStateOf("builds") } // "builds", "passport", "school_hub"
+
+    val intentCategories = listOf(
+        Triple("school", "🏫 Something for my school", "Announcements, assignment trackers"),
+        Triple("community", "🏘️ Something for my community", "Water outage alerts, safety board"),
+        Triple("idea", "💡 My own idea", "Custom problem card & build path"),
+        Triple("environment", "🌱 An environmental solution", "Recycling, solar crop tracker"),
+        Triple("business", "💼 A business idea", "Spaza shop stock, bakery order portal"),
+        Triple("ai", "🤖 Something with AI", "Local language study coach"),
+        Triple("fun", "🎮 Something fun", "Township quiz challenge game")
+    )
+
+    val filteredBuilds = if (selectedCategoryFilter == "all") builds else builds.filter { it.category == selectedCategoryFilter }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // TOP SUB-TAB TOGGLE: BUILDS | PASSPORT & PORTFOLIO | SCHOOL HUB
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White)
+                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val subTabs = listOf(
+                    Triple("builds", "🛠️ Builds", Localization.translate("problem_lab", langCode)),
+                    Triple("passport", "📜 Passport", Localization.translate("passport", langCode)),
+                    Triple("school_hub", "🏫 School Hub", Localization.translate("school_hub", langCode))
+                )
+
+                subTabs.forEach { (tabId, label, subtext) ->
+                    val isSel = activeSubSection == tabId
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSel) ThemeIndigo else Color.Transparent)
+                            .clickable { activeSubSection = tabId }
+                            .padding(vertical = 10.dp, horizontal = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = label,
+                                color = if (isSel) Color.White else Color.Black,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = subtext,
+                                color = if (isSel) ThemeGoldLight else Color.Gray,
+                                fontSize = 8.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (activeSubSection == "passport") {
+            item {
+                PassportAndPortfolioView(langCode = langCode)
+            }
+        } else if (activeSubSection == "school_hub") {
+            item {
+                SchoolHubView(langCode = langCode)
+            }
+        } else {
+            // Hero Header: TURN PROBLEMS INTO BUILDS
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(ThemeIndigo)
+                    .padding(20.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ThemeGold)
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "KODEMAMAS PLATFORM",
+                                color = Color(0xFF2E0A4E),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+
+                        Text(
+                            text = "Problem-to-Prototype",
+                            color = ThemeGoldLight,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "TURN PROBLEMS INTO BUILDS",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.5.sp
+                    )
+
+                    Text(
+                        text = "The fundamental unit of KodeMamas isn't a lesson. It is a BUILD. Young people turn real problems into working technology.",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 8-step pipeline visual indicator
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val stages = listOf("Discover", "Define", "Design", "Learn", "Build", "Test", "Improve", "Showcase")
+                        stages.forEachIndexed { index, stage ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White.copy(alpha = 0.15f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "${index + 1}. $stage",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: WHAT DO YOU WANT TO BUILD?
+        item {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "WHAT DO YOU WANT TO BUILD?",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF2E0A4E)
+                        )
+                        Text(
+                            text = "Select an intent category or create a custom problem card",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                    }
+
+                    Button(
+                        onClick = { showProblemLab = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "+ Problem Lab",
+                            color = Color(0xFF2E0A4E),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Intent Selector Cards Horizontal Scroll
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Filter All pill
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (selectedCategoryFilter == "all") ThemeIndigo else Color.White)
+                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
+                            .clickable { selectedCategoryFilter = "all" }
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "🌟 All Builds (${builds.size})",
+                            color = if (selectedCategoryFilter == "all") Color.White else Color.Black,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    intentCategories.forEach { (catId, label, desc) ->
+                        val isSelected = selectedCategoryFilter == catId
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSelected) ThemeIndigo else Color.White)
+                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
+                                .clickable {
+                                    selectedCategoryFilter = catId
+                                    // Also open Problem Lab if selecting idea
+                                    if (catId == "idea") showProblemLab = true
+                                }
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color.White else Color.Black,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = desc,
+                                    color = if (isSelected) ThemeGoldLight else Color.Gray,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: Problem Lab Active Builds List
+        item {
+            Text(
+                text = "ACTIVE PROBLEM BUILDS",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF2E0A4E),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+
+        items(filteredBuilds) { build ->
+            BuildCardItem(
+                build = build,
+                onProgressUpdate = { newProgress -> viewModel.updateBuildProgress(build.id, newProgress) },
+                onLaunchCodeSimulator = {
+                    val firstUnlocked = viewModel.allLessons.value.find { it.isUnlocked } ?: viewModel.allLessons.value.firstOrNull()
+                    firstUnlocked?.let { viewModel.selectLesson(it) }
+                },
+                onAskCoach = { viewModel.selectTab("ai_chat") }
+            )
+        }
+
+        // Section: Learning Engine - Tiny Learning Mission with 3-Tier Hints
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, ThemeCardBorder),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🎯", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "TINY LEARNING MISSION",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                color = ThemeIndigo
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFFEF3C7))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "Mission: Make Button Work",
+                                color = Color(0xFFB45309),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Every skill is taught inside your project. Here is the JavaScript event pipeline for your announcement board:",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray,
+                        lineHeight = 17.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Pipeline: Event -> Function -> Action
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFE0E7FF))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Event\n(click)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3730A3))
+                        }
+
+                        Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Next", tint = Color.Gray, modifier = Modifier.size(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF3E8FF))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Function\n(postNotice)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6B21A8))
+                        }
+
+                        Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Next", tint = Color.Gray, modifier = Modifier.size(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFD1FAE5))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Action\n(updateUI)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Need help? Use tiered hints before revealing explicit code:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { activeHintLevel = if (activeHintLevel == 1) 0 else 1 },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (activeHintLevel >= 1) Color(0xFFFEF3C7) else Color.Gray.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Hint 1",
+                                fontSize = 11.sp,
+                                color = if (activeHintLevel >= 1) Color(0xFF92400E) else Color.DarkGray,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Button(
+                            onClick = { activeHintLevel = if (activeHintLevel == 2) 0 else 2 },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (activeHintLevel >= 2) Color(0xFFFED7AA) else Color.Gray.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Hint 2",
+                                fontSize = 11.sp,
+                                color = if (activeHintLevel >= 2) Color(0xFF9A3412) else Color.DarkGray,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Button(
+                            onClick = { activeHintLevel = if (activeHintLevel == 3) 0 else 3 },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (activeHintLevel >= 3) Color(0xFFFBCFE8) else Color.Gray.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Hint 3",
+                                fontSize = 11.sp,
+                                color = if (activeHintLevel >= 3) Color(0xFF9D174D) else Color.DarkGray,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (activeHintLevel > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFFFFBEB))
+                                .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            val hintText = when (activeHintLevel) {
+                                1 -> "💡 Hint 1: Think about what should happen in plain English when the user taps 'Submit Announcement'."
+                                2 -> "💡 Hint 2: You need an event listener function attached to the button: button.addEventListener('click', postNotice)."
+                                else -> "💡 Hint 3: Code snippet:\nconst btn = document.getElementById('submitBtn');\nbtn.addEventListener('click', () => alert('Notice Posted!'));"
+                            }
+                            Text(
+                                text = hintText,
+                                fontSize = 11.sp,
+                                color = Color(0xFF78350F),
+                                lineHeight = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: KodeMamas Ecosystem Overview
+        item {
+            EcosystemOverviewCard()
+        }
+        }
+    }
+
+    if (showProblemLab) {
+        ProblemLabDialog(
+            onDismiss = { showProblemLab = false },
+            onCreateBuild = { cat, catIcon, title, problem, users, currSol, flaw, proposed ->
+                viewModel.createProblemBuild(cat, catIcon, title, problem, users, currSol, flaw, proposed)
+                showProblemLab = false
+            }
+        )
+    }
+}
+
+// Composable: BuildCardItem displaying Problem Card & Visual 7-Stage Build Board
+@Composable
+fun BuildCardItem(
+    build: ProblemBuild,
+    onProgressUpdate: (Int) -> Unit,
+    onLaunchCodeSimulator: () -> Unit,
+    onAskCoach: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, ThemeCardBorder),
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = build.categoryIcon, fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = build.title,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            color = Color(0xFF1F2937)
+                        )
+                        Text(
+                            text = "Category: ${build.category.uppercase()}",
+                            fontSize = 10.sp,
+                            color = ThemeIndigo,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF3E8FF))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "${build.buildProgressPercent}% BUILT",
+                        color = Color(0xFF6D28D9),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Problem Card Details Box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFFFAF9FF))
+                    .border(1.dp, Color(0xFFE9D5FF), RoundedCornerShape(14.dp))
+                    .padding(12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "📋 PROBLEM CARD",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = ThemeIndigo,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = "• Problem: ${build.problemStatement}",
+                        fontSize = 11.sp,
+                        color = Color.DarkGray,
+                        lineHeight = 15.sp
+                    )
+                    Text(
+                        text = "• Target Users: ${build.targetUsers}",
+                        fontSize = 11.sp,
+                        color = Color.DarkGray
+                    )
+                    Text(
+                        text = "• Current Solution Flaw: ${build.currentSolutionFlaw}",
+                        fontSize = 11.sp,
+                        color = Color(0xFFB91C1C)
+                    )
+                    Text(
+                        text = "• Tech Solution: ${build.proposedTechSolution}",
+                        fontSize = 11.sp,
+                        color = Color(0xFF047857),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Required Skills Badges
+            Text(
+                text = "BUILD PATH SKILLS NEEDED:",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                build.requiredSkills.split(",").forEach { skill ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFF3F4F6))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(text = skill.trim(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 7-Stage Build Board Visual Pipeline
+            Text(
+                text = "THE BUILD BOARD PROGRESS:",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val stages = listOf(
+                    Triple("🔎 DISCOVER", build.discoverCompleted, "Problem identified"),
+                    Triple("🧠 DEFINE", build.defineCompleted, "Users identified"),
+                    Triple("✏️ DESIGN", build.designCompleted, "Wireframe"),
+                    Triple("💻 BUILD", build.buildProgressPercent > 0, "${build.buildProgressPercent}%"),
+                    Triple("🧪 TEST", build.testCompleted, "3 users tested"),
+                    Triple("🔧 IMPROVE", build.improveCompleted, "2 improvements"),
+                    Triple("🚀 SHOWCASE", build.showcaseCompleted, "Portfolio Passport")
+                )
+
+                stages.forEach { (title, completed, detail) ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (completed) Color(0xFFECFDF5) else Color(0xFFF9FAFB))
+                            .border(
+                                1.dp,
+                                if (completed) Color(0xFFA7F3D0) else Color(0xFFE5E7EB),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = title,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (completed) Color(0xFF065F46) else Color.Gray
+                                )
+                                if (completed) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Done",
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = detail,
+                                fontSize = 9.sp,
+                                color = if (completed) Color(0xFF047857) else Color.LightGray
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Interactive Progress Bar Slider
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Code & Prototype Build Progress", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                    Text(text = "${build.buildProgressPercent}%", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = ThemeIndigo)
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                LinearProgressIndicator(
+                    progress = { build.buildProgressPercent / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape),
+                    color = ThemeIndigo,
+                    trackColor = Color(0xFFE5E7EB)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Action Row: Open Simulator / Ask Coach
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onLaunchCodeSimulator,
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Code, contentDescription = "Code", tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Code This Build", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                Button(
+                    onClick = onAskCoach,
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Assistant, contentDescription = "Coach", tint = Color(0xFF2E0A4E), modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Ask AI Coach", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E0A4E))
+                }
+            }
+        }
+    }
+}
+
+// Composable: The Ecosystem Overview Diagram Card
+@Composable
+fun EcosystemOverviewCard() {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E0638)),
+        border = BorderStroke(1.dp, ThemeCardBorder.copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                text = "KODEMAMAS ECOSYSTEM",
+                color = ThemeGold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp
+            )
+
+            Text(
+                text = "Connecting Learners, Schools, and Industry Partners",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Pillar 1: Learners
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                        .padding(10.dp)
+                ) {
+                    Column {
+                        Text("👩‍🎓 Learners", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("• Real problems\n• Coding + AI\n• Builder Passport", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, lineHeight = 13.sp)
+                    }
+                }
+
+                // Pillar 2: Schools
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                        .padding(10.dp)
+                ) {
+                    Column {
+                        Text("🏫 Schools", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("• Classroom Hubs\n• Problem Banks\n• Assignment Tracker", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, lineHeight = 13.sp)
+                    }
+                }
+
+                // Pillar 3: Partners
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                        .padding(10.dp)
+                ) {
+                    Column {
+                        Text("🤝 Partners", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("• Local NGOs\n• Corporate Sponsors\n• Verifiable Badges", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, lineHeight = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Dialog: Problem Lab Wizard for creating custom Problem Cards
+@Composable
+fun ProblemLabDialog(
+    onDismiss: () -> Unit,
+    onCreateBuild: (category: String, categoryIcon: String, title: String, problem: String, users: String, currSol: String, flaw: String, proposed: String) -> Unit
+) {
+    var category by remember { mutableStateOf("school") }
+    var title by remember { mutableStateOf("") }
+    var problemStatement by remember { mutableStateOf("") }
+    var targetUsers by remember { mutableStateOf("") }
+    var currentSolution by remember { mutableStateOf("") }
+    var currentSolutionFlaw by remember { mutableStateOf("") }
+    var proposedTechSolution by remember { mutableStateOf("") }
+
+    val categories = listOf(
+        Triple("school", "🏫", "School"),
+        Triple("community", "🏘️", "Community"),
+        Triple("business", "💼", "Business"),
+        Triple("environment", "🌱", "Environment"),
+        Triple("ai", "🤖", "AI Project"),
+        Triple("fun", "🎮", "Fun Idea")
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(text = "🧪 Problem Lab Wizard", fontWeight = FontWeight.Black, fontSize = 18.sp, color = ThemeIndigo)
+                Text(
+                    text = "Define your problem before writing one line of code",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(text = "1. Choose Category:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    categories.forEach { (catId, icon, label) ->
+                        val isSelected = category == catId
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) ThemeIndigo else Color.LightGray.copy(alpha = 0.2f))
+                                .clickable { category = catId }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "$icon $label",
+                                color = if (isSelected) Color.White else Color.Black,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Build Title (e.g., Assignment Tracker)", fontSize = 11.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = problemStatement,
+                    onValueChange = { problemStatement = it },
+                    label = { Text("What is the real problem?", fontSize = 11.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = targetUsers,
+                    onValueChange = { targetUsers = it },
+                    label = { Text("Who experiences this problem?", fontSize = 11.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = currentSolutionFlaw,
+                    onValueChange = { currentSolutionFlaw = it },
+                    label = { Text("Why isn't the current solution good enough?", fontSize = 11.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = proposedTechSolution,
+                    onValueChange = { proposedTechSolution = it },
+                    label = { Text("What could technology do?", fontSize = 11.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank() && problemStatement.isNotBlank()) {
+                        val selectedIcon = categories.find { it.first == category }?.second ?: "💡"
+                        onCreateBuild(
+                            category,
+                            selectedIcon,
+                            title,
+                            problemStatement,
+                            if (targetUsers.isBlank()) "Community Members" else targetUsers,
+                            if (currentSolution.isBlank()) "Manual process" else currentSolution,
+                            if (currentSolutionFlaw.isBlank()) "Inefficient & slow" else currentSolutionFlaw,
+                            if (proposedTechSolution.isBlank()) "Mobile web application" else proposedTechSolution
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Generate Build Path", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.Gray, fontSize = 12.sp)
+            }
+        }
+    )
 }
 
 // ---------------------- TAB 2: LEARN / LESSONS ----------------------
@@ -5814,7 +7297,7 @@ fun OnboardingScreen(
                 }
 
                 Text(
-                    text = "Code in Your Language. Learn Anywhere. Build Your Future.",
+                    text = Localization.translate("cover_tagline", langCode),
                     color = Color(0xFFFFD700),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -5832,7 +7315,7 @@ fun OnboardingScreen(
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "EMPOWERING GIRLS. MOTHERS. STUDENTS. COMMUNITIES. FUTURES. ♡",
+                        text = Localization.translate("cover_empowering", langCode),
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -5867,7 +7350,8 @@ fun OnboardingScreen(
                             onShowBenefit = { name, desc ->
                                 selectedPremiumBenefit = name
                                 premiumBenefitDescription = desc
-                            }
+                            },
+                            langCode = langCode
                         )
                     }
                 }
@@ -5897,7 +7381,8 @@ fun OnboardingScreen(
                         onShowBenefit = { name, desc ->
                             selectedPremiumBenefit = name
                             premiumBenefitDescription = desc
-                        }
+                        },
+                        langCode = langCode
                     )
                 }
             }
@@ -5915,7 +7400,7 @@ fun OnboardingScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = "FOUNDER'S MISSION ✨",
+                        text = Localization.translate("founder_mission", langCode),
                         color = Color(0xFFFFD700),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -5923,7 +7408,7 @@ fun OnboardingScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Nokwazi Nobuhle Xaba, a tech student from Bloemfontein, founded KodeMamas to reduce technology barriers for South African women. Our mission is to democratize coding education in local languages, empowering mothers, girls, and township communities to build their own limitless futures.",
+                        text = Localization.translate("founder_desc", langCode),
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 12.sp,
                         lineHeight = 18.sp
@@ -6068,13 +7553,13 @@ fun LeftPanelSection(
                     }
                     Column {
                         Text(
-                            text = "LEARN CODING IN YOUR LANGUAGE",
+                            text = Localization.translate("learn_coding_title", langCode),
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "12 South African languages supported",
+                            text = Localization.translate("sa_languages_count", langCode),
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 10.sp
                         )
@@ -6102,13 +7587,13 @@ fun LeftPanelSection(
                     }
                     Column {
                         Text(
-                            text = "OFFLINE + ONLINE LEARNING",
+                            text = Localization.translate("offline_online_title", langCode),
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Download lessons. Learn anywhere.",
+                            text = Localization.translate("download_learn_anywhere", langCode),
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 10.sp
                         )
@@ -6136,13 +7621,13 @@ fun LeftPanelSection(
                     }
                     Column {
                         Text(
-                            text = "BUILT FOR SA COMMUNITIES",
+                            text = Localization.translate("built_for_sa_title", langCode),
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Designed for township & rural learners.",
+                            text = Localization.translate("township_rural_desc", langCode),
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 10.sp
                         )
@@ -6158,7 +7643,7 @@ fun LeftPanelSection(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "START YOUR JOURNEY",
+                    text = Localization.translate("start_journey", langCode),
                     color = Color(0xFFFFD700),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -6185,7 +7670,7 @@ fun LeftPanelSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "START LEARNING",
+                        text = Localization.translate("get_started_btn", langCode),
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -6209,7 +7694,7 @@ fun LeftPanelSection(
                     .height(48.dp)
             ) {
                 Text(
-                    text = "EXPLORE COURSES",
+                    text = Localization.translate("explore_courses_btn", langCode),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -6238,7 +7723,7 @@ fun LeftPanelSection(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "YOU GET",
+                        text = Localization.translate("you_get_title", langCode),
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
@@ -6247,13 +7732,13 @@ fun LeftPanelSection(
                 }
 
                 val benefitsList = listOf(
-                    "Interactive Lessons",
-                    "Quizzes & Challenges",
-                    "Progress Tracking",
-                    "Certificates",
-                    "Community Support",
-                    "Daily Coding Challenges",
-                    "Mentorship & Career Support"
+                    Localization.translate("benefit_1", langCode),
+                    Localization.translate("benefit_2", langCode),
+                    Localization.translate("benefit_3", langCode),
+                    Localization.translate("benefit_4", langCode),
+                    Localization.translate("benefit_5", langCode),
+                    Localization.translate("benefit_6", langCode),
+                    Localization.translate("benefit_7", langCode)
                 )
                 benefitsList.forEach { benefit ->
                     Row(
@@ -6281,7 +7766,8 @@ fun LeftPanelSection(
 
 @Composable
 fun RightPanelSection(
-    onShowBenefit: (String, String) -> Unit
+    onShowBenefit: (String, String) -> Unit,
+    langCode: String = "en"
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -6360,7 +7846,7 @@ fun RightPanelSection(
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = "LEARN TOP SKILLS ⭐️",
+                    text = Localization.translate("learn_top_skills", langCode),
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -6426,9 +7912,9 @@ fun RightPanelSection(
                     )
                 }
                 Column {
-                    Text(text = "⚡ AI ASSISTANT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(text = Localization.translate("ai_assistant_title", langCode), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        text = "Your 24/7 coding learning buddy. Get conceptual explanations, code reviews, and mock practice.",
+                        text = Localization.translate("ai_assistant_desc", langCode),
                         color = Color.White.copy(alpha = 0.65f),
                         fontSize = 10.sp,
                         lineHeight = 14.sp
@@ -6448,7 +7934,7 @@ fun RightPanelSection(
         ) {
             Column {
                 Text(
-                    text = "“I don't just learn code. I build my future.”",
+                    text = Localization.translate("student_quote", langCode),
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -6456,7 +7942,7 @@ fun RightPanelSection(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "— Mamas Student, Soweto ♡",
+                    text = Localization.translate("student_quote_author", langCode),
                     color = Color(0xFFFFD700),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,

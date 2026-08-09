@@ -478,6 +478,12 @@ object Localization {
 
     private val supplementaryTranslations = mapOf(
         "en" to mapOf(
+            "passport" to "Builder Passport",
+            "portfolio" to "Auto Portfolio",
+            "school_hub" to "School Hub",
+            "evidence_record" to "Living Record of Evidence",
+            "problem_lab" to "Problem Lab",
+            "struggling_concepts" to "Struggling Concepts",
             "capitec_title" to "Capitec Bank Details",
             "account_info" to "Account Number: 2121743886\nBank: Capitec Bank\nHolder: KodeMamas Academy",
             "payment_inst" to "Use your name as reference. Your local student profile activates instantly.",
@@ -499,6 +505,12 @@ object Localization {
             "cancel_btn" to "Cancel"
         ),
         "zu" to mapOf(
+            "passport" to "Iphasipoti yoMwakhi",
+            "portfolio" to "Ikhasi leMisebenzi",
+            "school_hub" to "Ihabhu yezIkole",
+            "evidence_record" to "Inqolobane yobufakazi bokuphumelela",
+            "problem_lab" to "Ilebhorethri yezInkinga",
+            "struggling_concepts" to "Amakhono Adinga Usizo",
             "capitec_title" to "Imininingwane yeBhange laseCapitec",
             "account_info" to "Inombolo Ye-Akhawunti: 2121743886\nIbhange: iCapitec Bank\nUmnikazi: KodeMamas Academy",
             "payment_inst" to "Sebenzisa igama lakho njengereferensi. Iphrofayili isebenza khona manje.",
@@ -520,6 +532,12 @@ object Localization {
             "cancel_btn" to "Kansela"
         ),
         "xh" to mapOf(
+            "passport" to "Ipasipoti yoMwakhi",
+            "portfolio" to "Ikhasi leMisebenzi",
+            "school_hub" to "Ihubhu yezIzikolo",
+            "evidence_record" to "Inqolobane yobungqina bendlela ethathwe yimpumelelo",
+            "problem_lab" to "Ilabhoratri yezInkinga",
+            "struggling_concepts" to "Izinto eDinga uncedo",
             "capitec_title" to "Iinkcukacha zeBhanki yaseCapitec",
             "account_info" to "Inombolo ye-Akhawunti: 2121743886\nIBhanki: iCapitec Bank\nUmnini: KodeMamas Academy",
             "payment_inst" to "Sebenzisa igama lakho njengesikhombisi. Iphrofayile isebenza kwangoko.",
@@ -541,6 +559,12 @@ object Localization {
             "cancel_btn" to "Rhoxisa"
         ),
         "af" to mapOf(
+            "passport" to "Bouer Paspoort",
+            "portfolio" to "Auto Portefeulje",
+            "school_hub" to "Skool-spilpunt",
+            "evidence_record" to "Lewende Bewysrekord",
+            "problem_lab" to "Probleem-laboratorium",
+            "struggling_concepts" to "Sukkelende Konsepte",
             "capitec_title" to "Capitec Bank Besonderhede",
             "account_info" to "Rekeningnommer: 2121743886\nBank: Capitec Bank\nRE-houer: KodeMamas Academy",
             "payment_inst" to "Gebruik jou naam as verwysing. Jou profiel aktiveer dadelik.",
@@ -562,6 +586,12 @@ object Localization {
             "cancel_btn" to "Kanselleer"
         ),
         "nso" to mapOf(
+            "passport" to "Pasapoto ya Moahi",
+            "portfolio" to "Phafaphasa ya Mehala",
+            "school_hub" to "Lekgotla la Dikolo",
+            "evidence_record" to "Rekoote ya Bohlatsatši",
+            "problem_lab" to "Leparabolatšhi ya Ditharollo",
+            "struggling_concepts" to "Dintlha tša go Ngana",
             "capitec_title" to "Dintlha tša Pang ya Capitec",
             "account_info" to "Nomoro ya akhaonto: 2121743886\nPanka: Capitec Bank\nMong: KodeMamas Academy",
             "payment_inst" to "Šomiša leina la gago bjalo ka referense. E šoma ka bjako.",
@@ -583,6 +613,12 @@ object Localization {
             "cancel_btn" to "Phimo"
         ),
         "tn" to mapOf(
+            "passport" to "Pasaformo ya Moagi",
+            "portfolio" to "Phosotofolio ya Tiro",
+            "school_hub" to "Lekgotla la Dikolo",
+            "evidence_record" to "Rekote ya Bopaki ba Boiphediso",
+            "problem_lab" to "Laboratase ya Mathata",
+            "struggling_concepts" to "Dintlha tse di Thata",
             "capitec_title" to "Dintlha tsa Banka ya Capitec",
             "account_info" to "Nomore ya we-Akhawunti: 2121743886\nBanka: Capitec Bank\nTshwarelo: KodeMamas Academy",
             "payment_inst" to "Dirisa leina la gago jaaka tšhupetso. E simolotse kapako.",
@@ -604,6 +640,12 @@ object Localization {
             "cancel_btn" to "Kansela"
         ),
         "st" to mapOf(
+            "passport" to "Pasafele ea Moahi",
+            "portfolio" to "Phothofolio ea Mesebetsi",
+            "school_hub" to "Setsi sa Dikolo",
+            "evidence_record" to "Rekoto ea Bopaki bo Phelang",
+            "problem_lab" to "Laboratori ea Mathata",
+            "struggling_concepts" to "Likhopolo tse Thatafalang",
             "capitec_title" to "Lintlha tsa Banka ya Capitec",
             "account_info" to "Nomoro ya akhaonto: 2121743886\nBanka: Capitec Bank\nMong: KodeMamas Academy",
             "payment_inst" to "Sebelisa lebitso la gago e le reference. E tla qala ka nako yeo.",
@@ -625,6 +667,12 @@ object Localization {
             "cancel_btn" to "Hlakola"
         ),
         "ts" to mapOf(
+            "passport" to "Paspoto ya Muaki",
+            "portfolio" to "Photofolio ya Mintirho",
+            "school_hub" to "Habu ya Swikolo",
+            "evidence_record" to "Rikhodo ya Vumbhoni bya Vutomi",
+            "problem_lab" to "Ndhawu ya Swiphiqo",
+            "struggling_concepts" to "Swivumbeko swo Tikitiwa",
             "capitec_title" to "Iswotara ya Banka ya Capitec",
             "account_info" to "Nomboro ya Akhawunti: 2121743886\nBanka: Capitec Bank\nMunyi: KodeMamas Academy",
             "payment_inst" to "Tirhisa vito ra wena ku ri referense. Swi tirha hi nkarhi wolowo.",
@@ -646,6 +694,12 @@ object Localization {
             "cancel_btn" to "Tshika"
         ),
         "ss" to mapOf(
+            "passport" to "Iphasiphothi yemUwakhi",
+            "portfolio" to "Ikhasi lemImikhombo",
+            "school_hub" to "Sikhungo seTikolo",
+            "evidence_record" to "Inkhomba yeVumbhoni lebuPhelako",
+            "problem_lab" to "Ilabhoratri teTinshingila",
+            "struggling_concepts" to "Tiphawu teTekudzinga Luncedo",
             "capitec_title" to "Imininingwane yeBhange laseCapitec",
             "account_info" to "Inombolo ye-Akhawunti: 2121743886\nIBhange: ICapitec Bank\nUmnikazi: KodeMamas Academy",
             "payment_inst" to "Sebentisa ligama lakho kulereferensi. Kunika lwati ngetingucuko ngenyene.",
@@ -667,6 +721,12 @@ object Localization {
             "cancel_btn" to "Kansela"
         ),
         "ve" to mapOf(
+            "passport" to "Phasipoto ya Mufhati",
+            "portfolio" to "Phofolio ya Mishumo",
+            "school_hub" to "Tshitshavha tsha Zwikolo",
+            "evidence_record" to "Rekodo ya Vhutanzi ha Vhutshilo",
+            "problem_lab" to "Labu ya Thaidzo",
+            "struggling_concepts" to "Kuhumbulele ku Konda",
             "capitec_title" to "Dintlha dza Banka ya Capitec",
             "account_info" to "Nomboro ya Akhaonto: 2121743886\nBanka: Capitec Bank\nMunyi: KodeMamas Academy",
             "payment_inst" to "Shumisani dzina lagu li re referense. I shuma khunyeledzo zwa tshothe.",
@@ -688,6 +748,12 @@ object Localization {
             "cancel_btn" to "Phimo"
         ),
         "nr" to mapOf(
+            "passport" to "Iphasipoti yoMwakhi",
+            "portfolio" to "Ikhasi leMisebenzi",
+            "school_hub" to "Ihabhu yezIzikolo",
+            "evidence_record" to "Inqolobane yobufakazi bokuphumelela",
+            "problem_lab" to "Ilabhoratri yezInkinga",
+            "struggling_concepts" to "Izinto eDinga uncedo",
             "capitec_title" to "Imininingwane yeBhanka laCapitec",
             "account_info" to "Inombolo ye-Akhawunti: 2121743886\nIBhanka: ICapitec Bank\nUmnikazi: KodeMamas Academy",
             "payment_inst" to "Sebenzisa ibizo lakho njengereferensi. Kunika amandla phrofayili layo.",
@@ -709,6 +775,12 @@ object Localization {
             "cancel_btn" to "Kansela"
         ),
         "sasl" to mapOf(
+            "passport" to "Signed Builder Passport",
+            "portfolio" to "Signed Auto Portfolio",
+            "school_hub" to "Signed School Hub",
+            "evidence_record" to "Living Signed Record of Evidence",
+            "problem_lab" to "Signed Problem Lab",
+            "struggling_concepts" to "Signed Struggling Concepts",
             "capitec_title" to "Signed Capitec Bank Details",
             "account_info" to "Account Number: 2121743886\nBank: Capitec Bank\nHolder: KodeMamas Academy",
             "payment_inst" to "Signed Deposit: Use your visual name reference. Visual activation.",

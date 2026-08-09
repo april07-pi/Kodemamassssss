@@ -14,6 +14,15 @@ class Repository(private val db: AppDatabase) {
     val aiChats: Flow<List<MentorChat>> = db.chatDao().getAiChats()
     val mentorChats: Flow<List<MentorChat>> = db.chatDao().getMentorChats()
     val allBuddies: Flow<List<Buddy>> = db.buddyDao().getAllBuddies()
+    val allBuilds: Flow<List<ProblemBuild>> = db.buildDao().getAllBuilds()
+
+    suspend fun insertBuild(build: ProblemBuild) {
+        safeDbCall { db.buildDao().insertBuild(build) }
+    }
+
+    suspend fun updateBuildProgress(buildId: String, progressPercent: Int) {
+        safeDbCall { db.buildDao().updateBuildProgress(buildId, progressPercent) }
+    }
 
     private suspend fun <T> safeDbCall(action: suspend () -> T): T? {
         return try {
@@ -341,6 +350,68 @@ class Repository(private val db: AppDatabase) {
                     timestamp = System.currentTimeMillis() - 7200000
                 )
             )
+
+            // Seed initial Problem-to-Prototype Builds
+            val seedBuilds = listOf(
+                ProblemBuild(
+                    id = "build_school_dash",
+                    category = "school",
+                    categoryIcon = "🏫",
+                    title = "Central School Announcement Dashboard",
+                    problemStatement = "Students and parents don't know when assignments, exam dates, and notices are due.",
+                    targetUsers = "High School Students, Teachers, and Parents",
+                    currentSolution = "Messy WhatsApp groups & easily lost paper flyers",
+                    currentSolutionFlaw = "Critical notices get buried under hundreds of chat messages",
+                    proposedTechSolution = "Offline-first web dashboard for real-time announcements & homework tracking",
+                    requiredSkills = "HTML,CSS,JavaScript,Forms,Basic Data,UI Design",
+                    discoverCompleted = true,
+                    defineCompleted = true,
+                    designCompleted = true,
+                    buildProgressPercent = 65,
+                    testCompleted = true,
+                    improveCompleted = false,
+                    showcaseCompleted = false
+                ),
+                ProblemBuild(
+                    id = "build_spaza_index",
+                    category = "business",
+                    categoryIcon = "💼",
+                    title = "Township Spaza Shop Order & Stock Tracker",
+                    problemStatement = "Local township shoppers walk long distances only to find staple goods sold out.",
+                    targetUsers = "Township Households & Local Spaza Merchants",
+                    currentSolution = "In-person visits & manual cash record books",
+                    currentSolutionFlaw = "Wasted travel time and no advance visibility on inventory",
+                    proposedTechSolution = "Lightweight mobile web stock catalog & order reservation system",
+                    requiredSkills = "HTML,CSS,JavaScript,Forms,Basic Data,UI Design",
+                    discoverCompleted = true,
+                    defineCompleted = true,
+                    designCompleted = true,
+                    buildProgressPercent = 80,
+                    testCompleted = true,
+                    improveCompleted = true,
+                    showcaseCompleted = true
+                ),
+                ProblemBuild(
+                    id = "build_water_alert",
+                    category = "community",
+                    categoryIcon = "🏘️",
+                    title = "Community Water Supply Outage Board",
+                    problemStatement = "Unannounced municipal water shutoffs leave rural families without drinking water.",
+                    targetUsers = "Village & Township Community Residents",
+                    currentSolution = "Delayed word-of-mouth & local radio",
+                    currentSolutionFlaw = "Reaches households after the water taps have already run dry",
+                    proposedTechSolution = "Crowdsourced water status web board with SMS/PWA alerts",
+                    requiredSkills = "HTML,CSS,JavaScript,Forms,Basic Data,UI Design",
+                    discoverCompleted = true,
+                    defineCompleted = true,
+                    designCompleted = false,
+                    buildProgressPercent = 30,
+                    testCompleted = false,
+                    improveCompleted = false,
+                    showcaseCompleted = false
+                )
+            )
+            db.buildDao().insertBuilds(seedBuilds)
 
             // Self-healing / synchronization: unlock next lesson for any completed lessons
             val progresses = db.progressDao().getAllProgressSynchronous()

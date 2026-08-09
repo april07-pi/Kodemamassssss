@@ -153,3 +153,22 @@ interface BuddyDao {
     @Query("DELETE FROM buddy_messages WHERE buddyId = :buddyId")
     suspend fun clearBuddyMessages(buddyId: String)
 }
+
+@Dao
+interface BuildDao {
+    @Query("SELECT * FROM problem_builds ORDER BY dateCreated DESC")
+    fun getAllBuilds(): Flow<List<ProblemBuild>>
+
+    @Query("SELECT * FROM problem_builds WHERE id = :id LIMIT 1")
+    suspend fun getBuildById(id: String): ProblemBuild?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBuild(build: ProblemBuild)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBuilds(builds: List<ProblemBuild>)
+
+    @Query("UPDATE problem_builds SET buildProgressPercent = :progress WHERE id = :id")
+    suspend fun updateBuildProgress(id: String, progress: Int)
+}
+

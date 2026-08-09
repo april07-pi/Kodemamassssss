@@ -60,6 +60,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val allBuddies: StateFlow<List<Buddy>> = repository.allBuddies
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allBuilds: StateFlow<List<ProblemBuild>> = repository.allBuilds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _activeBuild = MutableStateFlow<ProblemBuild?>(null)
+    val activeBuild: StateFlow<ProblemBuild?> = _activeBuild.asStateFlow()
+
+    fun selectBuild(build: ProblemBuild?) {
+        _activeBuild.value = build
+    }
+
+    fun createProblemBuild(
+        category: String,
+        categoryIcon: String,
+        title: String,
+        problemStatement: String,
+        targetUsers: String,
+        currentSolution: String,
+        currentSolutionFlaw: String,
+        proposedTechSolution: String
+    ) {
+        viewModelScope.launch {
+            val id = "build_" + System.currentTimeMillis()
+            val newBuild = ProblemBuild(
+                id = id,
+                category = category,
+                categoryIcon = categoryIcon,
+                title = title,
+                problemStatement = problemStatement,
+                targetUsers = targetUsers,
+                currentSolution = currentSolution,
+                currentSolutionFlaw = currentSolutionFlaw,
+                proposedTechSolution = proposedTechSolution,
+                requiredSkills = "HTML,CSS,JavaScript,Forms,Basic Data,UI Design",
+                discoverCompleted = true,
+                defineCompleted = true,
+                designCompleted = true,
+                buildProgressPercent = 20,
+                testCompleted = false,
+                improveCompleted = false,
+                showcaseCompleted = false
+            )
+            repository.insertBuild(newBuild)
+            _activeBuild.value = newBuild
+        }
+    }
+
+    fun updateBuildProgress(buildId: String, newPercent: Int) {
+        viewModelScope.launch {
+            repository.updateBuildProgress(buildId, newPercent)
+        }
+    }
+
     // Lesson Active States
     private val _currentActiveLesson = MutableStateFlow<Lesson?>(null)
     val currentActiveLesson: StateFlow<Lesson?> = _currentActiveLesson.asStateFlow()
@@ -564,7 +616,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _aiGenerating.value = false
             } else {
                 // Create context prompt
-                val systemPrompt = "You are an empathetic, patient, and highly encouraging AI Tutor for KodeMamas. Your students are South African township mothers and young girls learning to code. You are fluent in all 11 official South African languages (English, Zulu, Xhosa, Afrikaans, Sepedi, Setswana, Sesotho, Xitsonga, siSwati, Tshivenda, isiNdebele) and South African Sign Language (SASL) notation. You MUST respond in the language the student addresses you in, or if they ask to explain something in any of the 12 languages, do so warmly. Explain the login/account creation screen (name input, selecting from 12 South African languages, and choosing role of Mama, Student, or Mentor) and explain the content after logging in (the Dashboard with 100-Day Onboarding Phase tracker and visual wins; the Learn tab with 10 interactive lessons; the Code compiler simulator; the Community forum; and study Buddies) in their requested language. Never write code for them directly; guide them step-by-step. Keep explanations short, simple, and under 150 words."
+                val systemPrompt = "You are an empathetic, patient, and highly encouraging Socratic AI Builder Coach for KodeMamas. Inspired by SuaCode's Kwame 2.0 (tested with thousands of learners across African countries), your mission is to transform learners into independent Builders who turn real problems into working technology. NEVER just give out raw code immediately when requested; instead ask guiding questions like 'Before I give you code, tell me what this button/function should do in plain words.' Guide them through: Discover -> Define -> Design -> Learn -> Build -> Test -> Improve -> Showcase. Keep explanations friendly, simple, and under 150 words in all 11 official South African languages plus SASL."
                 val aiResponse = GeminiService.generateResponse(trimmed, systemPrompt)
                 repository.insertChatMessage(MentorChat(isAi = true, isUser = false, messageText = aiResponse))
                 _aiGenerating.value = false
