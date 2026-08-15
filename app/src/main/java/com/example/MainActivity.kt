@@ -80,6 +80,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showOnboarding by remember { mutableStateOf(true) }
     var showOfflineAccountDialog by remember { mutableStateOf(false) }
+    var showStreakDialog by remember { mutableStateOf(false) }
     var showTourStep by remember { mutableStateOf<Int?>(null) }
 
     val downloadProgress by viewModel.downloadProgress.collectAsState()
@@ -117,7 +118,8 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         onEditProfile = { showOfflineAccountDialog = true },
                         onLanguageSelected = { code -> viewModel.changeLanguage(code) },
                         onStartTour = { showTourStep = 0 },
-                        onSettingsClick = { showSettingsDialog = true }
+                        onSettingsClick = { showSettingsDialog = true },
+                        onStreakClick = { showStreakDialog = true }
                     )
                 }
             },
@@ -157,7 +159,12 @@ fun MainAppScreen(viewModel: MainViewModel) {
                                 label = "tabChange"
                             ) { tab ->
                                 when (tab) {
-                                    "home" -> DashboardTab(viewModel = viewModel, langCode = langCode, onShowOnboarding = { showOnboarding = true })
+                                    "home" -> DashboardTab(
+                                        viewModel = viewModel,
+                                        langCode = langCode,
+                                        onShowOnboarding = { showOnboarding = true },
+                                        onStreakClick = { showStreakDialog = true }
+                                    )
                                     "builds" -> BuildsTab(viewModel = viewModel, langCode = langCode)
                                     "learn" -> LearnTab(viewModel = viewModel, langCode = langCode)
                                     "ai_chat" -> AiChatTab(viewModel = viewModel, langCode = langCode)
@@ -170,6 +177,15 @@ fun MainAppScreen(viewModel: MainViewModel) {
                 }
             }
         }
+    }
+
+    if (showStreakDialog) {
+        StreakNotificationDialog(
+            viewModel = viewModel,
+            userProfile = userProfile,
+            langCode = langCode,
+            onDismiss = { showStreakDialog = false }
+        )
     }
 
     if (showLanguageDialog) {
@@ -296,22 +312,22 @@ fun GuidedTourDialog(
     langCode: String
 ) {
     val title = when (step) {
-        0 -> "Welcome to KodeMamas! ✨"
-        1 -> "Interactive Lessons 📚"
-        2 -> "Empathetic AI Tutor 🤖"
-        3 -> "Community & Mentors 👥"
+        0 -> Localization.translate("tour_title_0", langCode)
+        1 -> Localization.translate("tour_title_1", langCode)
+        2 -> Localization.translate("tour_title_2", langCode)
+        3 -> Localization.translate("tour_title_3", langCode)
         else -> "Product Tour"
     }
     
     val text = when (step) {
-        0 -> "Sawubona! Let's build your future. Your Dashboard features a 100-Day Onboarding Tracker to keep you motivated and celebrate your daily streaks."
-        1 -> "Select the Learn tab to access 10 interactive lessons customized with South African Spaza examples. Download them to study completely offline!"
-        2 -> "Need step-by-step assistance? Tap the AI Chat tab to communicate with our friendly tutor, fluent in all 12 official South African languages!"
-        3 -> "Use the Community tab to ask questions on the forums, chat with professional mentors, and share code templates with study buddies!"
+        0 -> Localization.translate("tour_text_0", langCode)
+        1 -> Localization.translate("tour_text_1", langCode)
+        2 -> Localization.translate("tour_text_2", langCode)
+        3 -> Localization.translate("tour_text_3", langCode)
         else -> ""
     }
     
-    val nextLabel = if (step == 3) "Finish Tour" else "Next Step ➜"
+    val nextLabel = if (step == 3) Localization.translate("tour_finish", langCode) else Localization.translate("tour_next", langCode)
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onSkip) {
         androidx.compose.material3.Card(
@@ -363,7 +379,7 @@ fun GuidedTourDialog(
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Skip Tour", fontSize = 11.sp)
+                        Text(Localization.translate("tour_skip", langCode), fontSize = 11.sp)
                     }
                     
                     androidx.compose.material3.Button(
@@ -391,7 +407,8 @@ fun AppHeader(
     onEditProfile: () -> Unit = {},
     onLanguageSelected: (String) -> Unit = {},
     onStartTour: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onStreakClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -429,7 +446,7 @@ fun AppHeader(
                     )
                 }
                 Text(
-                    text = "SOUTH AFRICA",
+                    text = Localization.translate("south_africa", langCode),
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -469,7 +486,7 @@ fun AppHeader(
                                 .background(if (isOnline) Color(0xFF10B981) else Color(0xFFFFB800))
                         )
                         Text(
-                            text = if (isOnline) "ONLINE" else "OFFLINE",
+                            text = if (isOnline) Localization.translate("online_status", langCode) else Localization.translate("offline_status", langCode),
                             color = if (isOnline) Color(0xFF10B981) else Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 9.sp
@@ -586,7 +603,7 @@ fun AppHeader(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Sawubona, ${profile.name}! 👋",
+                            text = "${Localization.translate("greeting_sawubona", langCode)}, ${profile.name}! 👋",
                             color = Color.White,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
@@ -638,7 +655,13 @@ fun AppHeader(
                         }
                     }
 
-                    Column(horizontalAlignment = Alignment.End) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onStreakClick() }
+                            .padding(4.dp)
+                    ) {
                         Text(
                             text = Localization.translate("streak", langCode).uppercase(),
                             color = Color(0xFFFF5722),
@@ -686,9 +709,9 @@ fun AppBottomNavigation(
     ) {
         val items = listOf(
             Triple("home", Icons.Default.Home, Localization.translate("dashboard", langCode)),
-            Triple("builds", Icons.Default.Build, "Builds"),
+            Triple("builds", Icons.Default.Build, Localization.translate("builds", langCode)),
             Triple("learn", Icons.Default.School, Localization.translate("lessons", langCode)),
-            Triple("ai_chat", Icons.Default.Assistant, "AI Coach"),
+            Triple("ai_chat", Icons.Default.Assistant, Localization.translate("ai_assistant", langCode)),
             Triple("community", Icons.Default.Forum, Localization.translate("community", langCode)),
             Triple("mentorship", Icons.Default.CardMembership, Localization.translate("premium", langCode))
         )
@@ -740,7 +763,12 @@ data class PathwayItem(
 
 // ---------------------- TAB 1: DASHBOARD / HOME ----------------------
 @Composable
-fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: () -> Unit = {}) {
+fun DashboardTab(
+    viewModel: MainViewModel,
+    langCode: String,
+    onShowOnboarding: () -> Unit = {},
+    onStreakClick: () -> Unit = {}
+) {
     val lessons by viewModel.allLessons.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val challenges by viewModel.allChallenges.collectAsState()
@@ -984,7 +1012,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
 
                             Column {
                                 Text(
-                                    text = "Mam a • Bloemfontein Hub",
+                                    text = "Mama • Bloemfontein Hub",
                                     color = Color(0xFF1F2937),
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
@@ -992,7 +1020,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                     lineHeight = 20.sp
                                 )
                                 Text(
-                                    text = "KodeMamas Tech Scholar",
+                                    text = Localization.translate("tech_scholar", langCode),
                                     color = Color.Gray,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
@@ -1007,7 +1035,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // 210 XP metric pill
+                            // XP metric pill
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
@@ -1026,7 +1054,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = "210 XP",
+                                        text = "${userProfile?.xp ?: 0} XP",
                                         color = Color(0xFFB45309),
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 12.sp
@@ -1034,12 +1062,13 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                 }
                             }
 
-                            // 3 Day Streak metric pill
+                            // Streak metric pill
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(Color(0xFFFFF7ED))
                                     .border(1.dp, Color(0xFFFED7AA), RoundedCornerShape(14.dp))
+                                    .clickable { onStreakClick() }
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
                                 Row(
@@ -1053,7 +1082,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = "3 Day Streak",
+                                        text = "${userProfile?.streak ?: 1} Day Streak",
                                         color = Color(0xFFC2410C),
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 12.sp
@@ -1107,7 +1136,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
 
                             Column {
                                 Text(
-                                    text = "OFFLINE LESSONS",
+                                    text = Localization.translate("offline_lessons_title", langCode),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFF6D28D9),
@@ -1115,7 +1144,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "All 10 Saved",
+                                    text = Localization.translate("all_lessons_saved", langCode),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1F2937)
@@ -1158,7 +1187,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
 
                             Column {
                                 Text(
-                                    text = "MY CERTIFICATE",
+                                    text = Localization.translate("my_certificate_title", langCode),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFFD97706),
@@ -1166,13 +1195,13 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Claim Certificate",
+                                    text = Localization.translate("claim_certificate_btn", langCode),
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1F2937)
                                 )
                                 Text(
-                                    text = "Bloemfontein Hub Certified",
+                                    text = Localization.translate("hub_certified", langCode),
                                     fontSize = 10.sp,
                                     color = Color.Gray,
                                     lineHeight = 14.sp
@@ -1208,7 +1237,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "NTLHONTLO WA SIKU",
+                                    text = Localization.translate("daily_challenge_title", langCode),
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 14.sp,
                                     color = Color(0xFF2E0A4E),
@@ -1222,7 +1251,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                     .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = "ACTIVE",
+                                    text = Localization.translate("active_status", langCode),
                                     color = Color(0xFFB45309),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold
@@ -1232,7 +1261,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
 
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Mama's Bakery Order System - Mama Thoko makes fresh township muffins in Umlazi. She charges R8 per muffin. Calculate total price for 12 muffins in JS.",
+                            text = Localization.translate("daily_challenge_desc", langCode),
                             fontSize = 13.sp,
                             color = Color(0xFF374151),
                             lineHeight = 19.sp,
@@ -1254,7 +1283,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Accept Challenge & Run Calculation",
+                                text = Localization.translate("accept_challenge_btn", langCode),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -1317,7 +1346,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = "Created by Nokwazi Nobuhle Xaba",
+                            text = Localization.translate("created_by", langCode),
                             color = ThemeIndigo,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -1331,13 +1360,13 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "🗺️ Complete Professional Tech Pathways (10 Routes)",
+                        text = Localization.translate("pathways_title", langCode),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Black,
                         color = ThemeIndigo
                     )
                     Text(
-                        text = "Master production-grade skills aligned to South African tech hubs with visual checklists and diagnostic roadmap quizzes.",
+                        text = Localization.translate("pathways_desc", langCode),
                         fontSize = 11.sp,
                         color = Color.Gray,
                         lineHeight = 15.sp
@@ -1350,7 +1379,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                             pathwaysSearchQuery = it
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Search professional pathways...", fontSize = 12.sp) },
+                        placeholder = { Text(Localization.translate("search_pathways", langCode), fontSize = 12.sp) },
                         leadingIcon = { Icon(Icons.Default.Search, null, tint = ThemeIndigo, modifier = Modifier.size(18.dp)) },
                         shape = RoundedCornerShape(16.dp),
                         singleLine = true
@@ -1404,7 +1433,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "⚡ Do All Pathways (Auto-Complete)",
+                            text = Localization.translate("do_all_pathways", langCode),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -1415,7 +1444,7 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                     }
 
                     if (filteredPathways.isEmpty()) {
-                        Text("No matching pathways found. Check spelling!", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(8.dp))
+                        Text(Localization.translate("no_pathways_found", langCode), fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(8.dp))
                     }
 
                     filteredPathways.forEach { path ->
@@ -2685,7 +2714,7 @@ fun SouthAfricanLanguageHub(
                             color = ThemeIndigo
                         )
                         Text(
-                            text = "Choose your preferred language",
+                            text = Localization.translate("choose_lang_sub", currentLangCode),
                             fontSize = 11.sp,
                             color = Color.Gray
                         )
@@ -3392,7 +3421,7 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
                         }
 
                         Text(
-                            text = "Problem-to-Prototype",
+                            text = Localization.translate("problem_to_prototype", langCode),
                             color = ThemeGoldLight,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
@@ -3402,7 +3431,7 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "TURN PROBLEMS INTO BUILDS",
+                        text = Localization.translate("turn_problems_title", langCode),
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
@@ -3410,7 +3439,7 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
                     )
 
                     Text(
-                        text = "The fundamental unit of KodeMamas isn't a lesson. It is a BUILD. Young people turn real problems into working technology.",
+                        text = Localization.translate("turn_problems_desc", langCode),
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
@@ -9401,6 +9430,266 @@ fun OnboardingWinDialog(
         }
     }
 }
+
+// ---------------------- DIALOG: STREAK & NOTIFICATION MANAGEMENT ----------------------
+@Composable
+fun StreakNotificationDialog(
+    viewModel: MainViewModel,
+    userProfile: UserProfile?,
+    langCode: String,
+    onDismiss: () -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val streakDays = userProfile?.streak ?: 1
+    val isNotificationEnabled = userProfile?.streakNotificationEnabled ?: true
+    val xp = userProfile?.xp ?: 0
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        androidx.compose.material3.Card(
+            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.dp, ThemeCardBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .testTag("streak_notification_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header with glowing flame
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(Color(0xFFFFEDD5), Color(0xFFFFDBA6), Color(0xFFFF5722).copy(alpha = 0.1f))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Whatshot,
+                        contentDescription = "Streak Flame",
+                        tint = Color(0xFFFF5722),
+                        modifier = Modifier.size(46.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "$streakDays Day Coding Streak! 🔥",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF1E293B),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                Text(
+                    text = "Keep your habit burning bright. Complete 1 lesson step or challenge every day to preserve your streak.",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                )
+
+                // 7-Day Weekday Tracker
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFFFFF7ED))
+                        .border(1.dp, Color(0xFFFFEDD5), RoundedCornerShape(18.dp))
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "THIS WEEK'S HABIT",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFC2410C)
+                            )
+                            Text(
+                                text = "XP: $xp",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFB45309)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val days = listOf("M", "T", "W", "T", "F", "S", "S")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            days.forEachIndexed { index, day ->
+                                val isActive = index < (streakDays % 7).coerceAtLeast(1)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isActive) Color(0xFFFF5722) else Color.White
+                                            )
+                                            .border(
+                                                1.dp,
+                                                if (isActive) Color(0xFFFF5722) else Color(0xFFE2E8F0),
+                                                CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isActive) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Whatshot,
+                                                contentDescription = "Active day",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = day,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = day,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isActive) Color(0xFFC2410C) else Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Daily Streak Bonus Claim
+                Button(
+                    onClick = { viewModel.claimDailyStreakBonus() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFFBEB), contentColor = Color(0xFFB45309)),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("claim_streak_bonus_button")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(imageVector = Icons.Filled.Star, contentDescription = "Bonus", tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
+                        Text("Claim Daily Streak Bonus (+15 XP)", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Streak Notification Setting Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFF8FAFC))
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Daily Reminder Notifications",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
+                            )
+                            Text(
+                                text = "Get notified before midnight so you never lose your fire.",
+                                fontSize = 10.sp,
+                                color = Color.Gray,
+                                lineHeight = 14.sp
+                            )
+                        }
+
+                        Switch(
+                            checked = isNotificationEnabled,
+                            onCheckedChange = { viewModel.toggleStreakNotification(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = ThemeIndigo
+                            ),
+                            modifier = Modifier.testTag("streak_notification_switch")
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Send Test Streak Notification Button
+                OutlinedButton(
+                    onClick = { viewModel.triggerStreakNotification(context) },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ThemeIndigo),
+                    border = BorderStroke(1.dp, ThemeIndigo.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("send_test_streak_notification_button")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(imageVector = Icons.Filled.NotificationsActive, contentDescription = "Test Notification", tint = ThemeIndigo, modifier = Modifier.size(18.dp))
+                        Text("Send Test Streak Notification 🔔", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dismiss / Continue Button
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("dismiss_streak_dialog_button")
+                ) {
+                    Text("Keep Learning 🚀", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                }
+            }
+        }
+    }
+}
+
 
 
 

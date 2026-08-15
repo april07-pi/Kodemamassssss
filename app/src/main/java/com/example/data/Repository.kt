@@ -64,9 +64,42 @@ class Repository(private val db: AppDatabase) {
             db.challengeDao().updateChallengeStatus(id, completed)
             if (completed) {
                 // Award XP for completing offline daily challenge
-                db.userDao().updateXpAndStreak(xpGained = 20, newStreak = 1)
+                db.userDao().addXp(20)
+                recordActivityAndIncrementStreak()
             }
         }
+    }
+
+    suspend fun recordActivityAndIncrementStreak(): Int {
+        return safeDbCall {
+            val profile = db.userDao().getUserProfileSynchronous() ?: return@safeDbCall 1
+            val now = System.currentTimeMillis()
+            val calendarNow = java.util.Calendar.getInstance().apply { timeInMillis = now }
+            val calendarLast = java.util.Calendar.getInstance().apply { timeInMillis = profile.lastStreakTimestamp }
+
+            val isSameDay = profile.lastStreakTimestamp > 0L &&
+                    calendarNow.get(java.util.Calendar.YEAR) == calendarLast.get(java.util.Calendar.YEAR) &&
+                    calendarNow.get(java.util.Calendar.DAY_OF_YEAR) == calendarLast.get(java.util.Calendar.DAY_OF_YEAR)
+
+            val isYesterday = if (profile.lastStreakTimestamp > 0L) {
+                calendarLast.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                calendarNow.get(java.util.Calendar.YEAR) == calendarLast.get(java.util.Calendar.YEAR) &&
+                        calendarNow.get(java.util.Calendar.DAY_OF_YEAR) == calendarLast.get(java.util.Calendar.DAY_OF_YEAR)
+            } else false
+
+            val newStreak = when {
+                isSameDay -> profile.streak
+                isYesterday || profile.lastStreakTimestamp == 0L -> (profile.streak + 1).coerceAtLeast(1)
+                else -> 1 // Reset if missed more than 1 day
+            }
+
+            db.userDao().updateStreak(newStreak, now)
+            newStreak
+        } ?: 1
+    }
+
+    suspend fun updateStreakNotification(enabled: Boolean) {
+        safeDbCall { db.userDao().updateStreakNotification(enabled) }
     }
 
     suspend fun addDiscussionPost(post: DiscussionPost) {
@@ -134,12 +167,15 @@ class Repository(private val db: AppDatabase) {
 
             // Give XP if completed
             if (completed && !(existing?.isCompleted ?: false)) {
-                db.userDao().updateXpAndStreak(xpGained = 50, newStreak = 1)
+                db.userDao().addXp(50)
+                recordActivityAndIncrementStreak()
                 // auto-unlock next lesson
                 unlockNextLesson(lessonId)
             }
             if (quizCompleted && !(existing?.quizCompleted ?: false)) {
-                db.userDao().updateXpAndStreak(xpGained = 30, newStreak = 1)
+                db.userDao().addXp(30)
+                recordActivityAndIncrementStreak()
+                unlockNextLesson(lessonId)
             }
         }
     }

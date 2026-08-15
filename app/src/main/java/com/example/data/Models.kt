@@ -31,7 +31,9 @@ data class UserProfile(
     val isPremium: Boolean = false,
     val isPlus: Boolean = false,
     val hasDownloadedOffline: Boolean = false,
-    val avatarRes: String = "mama_avatar"
+    val avatarRes: String = "mama_avatar",
+    val lastStreakTimestamp: Long = 0L,
+    val streakNotificationEnabled: Boolean = true
 )
 
 @Entity(tableName = "lessons")

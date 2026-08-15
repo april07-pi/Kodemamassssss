@@ -1,9 +1,11 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
+import com.example.util.StreakNotificationHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -253,6 +255,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             // Populate database if empty
             repository.prepopulateDatabaseIfEmpty()
+            
+            // Check & track daily streak on app launch
+            val streak = repository.recordActivityAndIncrementStreak()
+
             // Pull the preferred language code from database and sync with preferences
             val savedPrefsLang = sharedPrefs.getString("selected_language_code", "en") ?: "en"
             userProfile.collect { profile ->
@@ -267,8 +273,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         sharedPrefs.edit().putString("selected_language_code", dbLang).apply()
                         _currentLanguageCode.value = dbLang
                     }
+                    if (it.streakNotificationEnabled) {
+                        StreakNotificationHelper.showStreakNotification(
+                            getApplication(),
+                            it.streak,
+                            it.xp,
+                            it.languageCode
+                        )
+                    }
                 }
             }
+        }
+    }
+
+    fun triggerStreakNotification(context: Context) {
+        val profile = userProfile.value
+        val streakDays = profile?.streak ?: 1
+        val xp = profile?.xp ?: 0
+        val lang = _currentLanguageCode.value
+        StreakNotificationHelper.showStreakNotification(context, streakDays, xp, lang)
+        android.widget.Toast.makeText(
+            context,
+            "🔥 Daily Streak Notification Sent! Keep your streak active.",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    fun toggleStreakNotification(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateStreakNotification(enabled)
+            val msg = if (enabled) "Daily streak notifications enabled! 🔔" else "Streak notifications paused."
+            android.widget.Toast.makeText(getApplication(), msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun claimDailyStreakBonus() {
+        viewModelScope.launch {
+            val newStreak = repository.recordActivityAndIncrementStreak()
+            val profile = userProfile.value
+            if (profile != null) {
+                repository.updateProfile(profile.copy(xp = profile.xp + 15))
+            }
+            android.widget.Toast.makeText(
+                getApplication(),
+                "🔥 Daily Streak Claimed! Streak: $newStreak Days (+15 XP)",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -431,51 +481,160 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _isCompiling.value = true
 
         viewModelScope.launch {
-            delay(1200) // Fast realistic compiler run simulation
+            delay(900) // Fast realistic compiler run simulation
 
-            when (currentLesson.category) {
-                "HTML" -> {
-                    if (currentCode.contains("<h1>") && currentCode.contains("</h1>") && currentCode.lowercase().contains("spaza")) {
-                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\nHeading size h1: \"Mam's Spaza Shop\" with warm gold colors."
-                        _simulatorSuccess.value = true
-                    } else if (currentCode.contains("<ul>") && currentCode.contains("</ul>")) {
-                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound elements: Bread, Milk, Rooibos Tea."
-                        _simulatorSuccess.value = true
+            val lowerCode = currentCode.lowercase()
+            var isSuccess = false
+            var output = ""
+
+            when (currentLesson.id) {
+                "html_1" -> {
+                    if (step.stepNumber == 2) {
+                        if (lowerCode.contains("<h1>") && lowerCode.contains("</h1>")) {
+                            output = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\n<h1>Mam's Spaza Shop</h1> with warm township gold styling."
+                            isSuccess = true
+                        } else {
+                            output = "Web Preview Output:\n--------------------\n$currentCode\n--------------------\nTip: Wrap your heading with <h1> and </h1> tags!"
+                        }
+                    } else if (step.stepNumber == 3) {
+                        if ((lowerCode.contains("<ul>") && lowerCode.contains("</ul>")) || lowerCode.contains("<li>") || lowerCode.contains("<p>")) {
+                            output = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound stock items: Bread, Milk, Rooibos Tea."
+                            isSuccess = true
+                        } else {
+                            output = "Web Preview Output:\n--------------------\n$currentCode\n--------------------\nTip: Use <ul> and <li> tags to list your stock items!"
+                        }
                     } else {
-                        _simulatorOutput.value = "Web Preview Output:\n--------------------\n" + currentCode + "\n--------------------\nTip: Make sure to wrap headings in <h1>...</h1> or make lists using <ul> and <li>!"
-                        _simulatorSuccess.value = false
+                        isSuccess = true
+                        output = "🚀 Web Preview:\nStep completed! Click Next to continue."
                     }
                 }
-                "CSS" -> {
-                    if (currentCode.contains("background-color") && currentCode.contains("color")) {
-                        _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
-                        _simulatorSuccess.value = true
+                "css_2" -> {
+                    if (lowerCode.contains("background-color") || lowerCode.contains("color") || lowerCode.contains("#121212") || lowerCode.contains("gold") || lowerCode.contains("#ffd700") || lowerCode.contains("{")) {
+                        output = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
+                        isSuccess = true
                     } else {
-                        _simulatorOutput.value = "CSS compiler output:\nModified style sheets rules. Use background-color and color to configure colors!"
-                        _simulatorSuccess.value = false
+                        output = "CSS compiler output:\nModified style sheet rules. Use background-color and color to configure colors!"
                     }
                 }
-                "JavaScript" -> {
-                    if (currentCode.contains("calculateTotal") && currentCode.contains("18.50")) {
-                        _simulatorOutput.value = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.5 + 3*16 = 37 + 48 = 85)."
-                        _simulatorSuccess.value = true
+                "js_3" -> {
+                    if (lowerCode.contains("calculatetotal") || lowerCode.contains("price") || lowerCode.contains("console.log") || lowerCode.contains("18.5") || lowerCode.contains("function")) {
+                        output = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.5 + 3*16 = 37 + 48 = 85)."
+                        isSuccess = true
                     } else {
-                        _simulatorOutput.value = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined or code incomplete. Write the calculateTotal function!"
-                        _simulatorSuccess.value = false
+                        output = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined or incomplete. Define variables and return the total sum!"
                     }
                 }
-                "Python" -> {
-                    if (currentCode.contains("temp > 30") && currentCode.contains("print")) {
-                        _simulatorOutput.value = "🐍 Python Terminal Output:\nWarning: High Heat! Increase irrigation x2.\n\n✅ Algorithm completed successfully!"
-                        _simulatorSuccess.value = true
+                "python_4" -> {
+                    if (lowerCode.contains("temp") || lowerCode.contains("if") || lowerCode.contains("print")) {
+                        output = "🐍 Python Terminal Output:\nWarning: High Heat (32°C)! Increase crop irrigation x2.\n\n✅ Agricultural forecast script executed successfully!"
+                        isSuccess = true
                     } else {
-                        _simulatorOutput.value = "🐍 Python IDLE Console:\nError: IndentationError or missing conditional comparison condition temperature > 30."
-                        _simulatorSuccess.value = false
+                        output = "🐍 Python IDLE Console:\nIndentation or syntax check: Use 'if temp > 30:' and print your irrigation alert."
+                    }
+                }
+                "html_5" -> {
+                    if (step.stepNumber == 1) {
+                        if (lowerCode.contains("<h1>") && lowerCode.contains("</h1>")) {
+                            output = "🚀 Web Emulator Preview:\n✨ High-Converting StoryBrand Header rendered!\n<h1>Grow Your Business with KodeMamas</h1>"
+                            isSuccess = true
+                        } else {
+                            output = "Web Preview:\nUse <h1>...</h1> to build your hero section title."
+                        }
+                    } else {
+                        if (lowerCode.contains("<button>") && lowerCode.contains("</button>")) {
+                            output = "🚀 Web Emulator Preview:\n🔘 Call to Action Button Rendered: [Join Training Now]!\nGreat customer conversion trigger."
+                            isSuccess = true
+                        } else {
+                            output = "Web Preview:\nWrap your call to action text in <button> and </button> tags."
+                        }
+                    }
+                }
+                "css_6" -> {
+                    if (lowerCode.contains(".mama") || lowerCode.contains(".student") || lowerCode.contains("color") || lowerCode.contains("{")) {
+                        output = "🎨 CSS Classes Compiled:\n✅ Class .mama styled with Gold (#FFD700)!\n✅ Class .student styled with Indigo (#4B0082)!\nRoles successfully documented in SOP dashboard."
+                        isSuccess = true
+                    } else {
+                        output = "CSS Compiler:\nUse class selectors .mama and .student to color-code roles."
+                    }
+                }
+                "js_7" -> {
+                    if (lowerCode.contains("revenue") || lowerCode.contains("profit") || lowerCode.contains("expenses") || lowerCode.contains("console.log") || lowerCode.contains("-")) {
+                        output = "⚙️ Cash Flow Engine Output:\nNet Profit: R5,500.00\n\n✅ Healthy cash reserve calculation compiled! Revenue (R15,000) - Expenses (R9,500) = R5,500 profit."
+                        isSuccess = true
+                    } else {
+                        output = "⚙️ JS Console:\nDefine revenue and expenses, then calculate 'const profit = revenue - expenses;'."
+                    }
+                }
+                "html_8" -> {
+                    if (lowerCode.contains("<input") || lowerCode.contains("email") || lowerCode.contains("placeholder")) {
+                        output = "🚀 Web Emulator Preview:\n📝 Lead capture input rendered: [Enter your email...]\nReady for customer feedback integration."
+                        isSuccess = true
+                    } else {
+                        output = "Web Preview:\nUse <input type=\"email\" placeholder=\"Enter your email\" /> to create the input field."
+                    }
+                }
+                "python_9" -> {
+                    if (lowerCode.contains("for") || lowerCode.contains("sales") || lowerCode.contains("print")) {
+                        output = "🐍 Python Terminal Output:\nMonth 1: R5,750.00\nMonth 2: R6,612.50\nMonth 3: R7,604.38\n\n✅ 90-Day Compounding Forecast generated with 15% monthly growth!"
+                        isSuccess = true
+                    } else {
+                        output = "🐍 Python Console:\nUse 'for month in [1, 2, 3]:' loop to simulate 90-day compounding revenue."
+                    }
+                }
+                "js_10" -> {
+                    if (lowerCode.contains("steps") || lowerCode.contains("foreach") || lowerCode.contains("console.log") || lowerCode.contains("for")) {
+                        output = "⚙️ Automation Console:\n1. Lead\n2. Team\n3. Plan\n4. Experience\n5. Marketing\n6. Scale\n\n✅ 6-Step SOP automated checklist looped cleanly!"
+                        isSuccess = true
+                    } else {
+                        output = "⚙️ JS Console:\nIterate through SOP steps array using steps.forEach(...) or for loop."
+                    }
+                }
+                else -> {
+                    when (currentLesson.category) {
+                        "HTML" -> {
+                            if (lowerCode.contains("<") && lowerCode.contains(">")) {
+                                output = "🚀 Web Emulator Preview:\nHTML syntax parsed successfully!\n$currentCode"
+                                isSuccess = true
+                            } else {
+                                output = "HTML compiler: Enter valid HTML tags (e.g. <h1>, <p>, <button>)."
+                            }
+                        }
+                        "CSS" -> {
+                            if (lowerCode.contains("{") || lowerCode.contains(":") || lowerCode.contains(";")) {
+                                output = "🎨 CSS styling compiled successfully!\nRules applied to viewport."
+                                isSuccess = true
+                            } else {
+                                output = "CSS compiler: Define CSS properties using 'selector { property: value; }'."
+                            }
+                        }
+                        "JavaScript" -> {
+                            if (lowerCode.contains("const") || lowerCode.contains("let") || lowerCode.contains("var") || lowerCode.contains("function") || lowerCode.contains("console.log")) {
+                                output = "⚙️ JavaScript Execution Output:\nExecution successful (0 errors).\nLog: Output rendered."
+                                isSuccess = true
+                            } else {
+                                output = "JS Console: Write valid JavaScript statements or console.log(...)."
+                            }
+                        }
+                        "Python" -> {
+                            if (lowerCode.contains("print") || lowerCode.contains("=") || lowerCode.contains("def") || lowerCode.contains("for") || lowerCode.contains("if")) {
+                                output = "🐍 Python Terminal Output:\nProgram executed with exit code 0.\nOutputs rendered."
+                                isSuccess = true
+                            } else {
+                                output = "Python IDLE: Enter valid Python syntax (e.g. print(...))."
+                            }
+                        }
+                        else -> {
+                            output = "Compiled successfully!\n$currentCode"
+                            isSuccess = true
+                        }
                     }
                 }
             }
 
-            if (_simulatorSuccess.value) {
+            _simulatorOutput.value = output
+            _simulatorSuccess.value = isSuccess
+
+            if (isSuccess) {
                 completeOnboardingPhase("activate")
             }
             _isCompiling.value = false
@@ -488,9 +647,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val steps = _currentActiveSteps.value
             val currentIdx = _currentStepIndex.value
             
-            if (currentIdx == steps.size - 1) {
-                // Lesson steps finished -> Load interactive quiz questions
-                repository.getQuizForLesson(currentLesson.id).collect { questions ->
+            if (currentIdx >= steps.size - 1 || steps.isEmpty()) {
+                // Lesson steps finished -> Load interactive quiz questions using firstOrNull to avoid re-triggering
+                val questions = repository.getQuizForLesson(currentLesson.id).firstOrNull() ?: emptyList()
+                if (questions.isNotEmpty()) {
                     _activeQuizQuestions.value = questions
                     _quizQuestionIndex.value = 0
                     _selectedAnswerIndex.value = -1
@@ -498,9 +658,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _quizCorrect.value = false
                     _quizScore.value = 0
                     _quizFinished.value = false
-                    
-                    // Trigger navigation to quiz state
                     _currentActiveSteps.value = emptyList() // clear steps to open quiz
+                } else {
+                    // If no quiz questions found in DB, auto-complete lesson
+                    _quizFinished.value = true
+                    repository.saveUserProgress(
+                        lessonId = currentLesson.id,
+                        stepIndex = 1,
+                        completed = true,
+                        quizCompleted = true,
+                        score = 100
+                    )
+                    StreakNotificationHelper.showLessonCompletedNotification(
+                        getApplication(),
+                        currentLesson.title,
+                        userProfile.value?.streak ?: 1,
+                        _currentLanguageCode.value
+                    )
+                    completeOnboardingPhase("accomplish")
                 }
             } else {
                 setStepIndex(currentIdx + 1)
@@ -536,19 +711,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val questions = _activeQuizQuestions.value
         val currentQIdx = _quizQuestionIndex.value
 
-        if (currentQIdx == questions.size - 1) {
+        if (currentQIdx >= questions.size - 1 || questions.isEmpty()) {
             // End of Quiz
             _quizFinished.value = true
-            // Save user progress in Database! This grants XP and unlocks the next lesson.
+            // Save user progress in Database! This grants XP, unlocks next lesson and triggers streak notification.
             viewModelScope.launch {
-                val lessonId = _currentActiveLesson.value?.id ?: return@launch
-                val passed = _quizScore.value >= (questions.size / 2.0)
+                val lesson = _currentActiveLesson.value ?: return@launch
+                val passed = if (questions.isEmpty()) true else _quizScore.value >= (questions.size / 2.0)
                 repository.saveUserProgress(
-                    lessonId = lessonId,
-                    stepIndex = 1, // dummy value marking done
-                    completed = passed,
+                    lessonId = lesson.id,
+                    stepIndex = 1,
+                    completed = true,
                     quizCompleted = true,
                     score = _quizScore.value
+                )
+                StreakNotificationHelper.showLessonCompletedNotification(
+                    getApplication(),
+                    lesson.title,
+                    userProfile.value?.streak ?: 1,
+                    _currentLanguageCode.value
                 )
                 if (passed) {
                     completeOnboardingPhase("accomplish")

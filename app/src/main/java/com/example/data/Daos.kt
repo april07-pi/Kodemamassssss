@@ -21,6 +21,15 @@ interface UserDao {
     @Query("UPDATE user_profiles SET xp = xp + :xpGained, streak = :newStreak WHERE id = 1")
     suspend fun updateXpAndStreak(xpGained: Int, newStreak: Int)
 
+    @Query("UPDATE user_profiles SET xp = xp + :xpGained WHERE id = 1")
+    suspend fun addXp(xpGained: Int)
+
+    @Query("UPDATE user_profiles SET streak = :newStreak, lastStreakTimestamp = :timestamp WHERE id = 1")
+    suspend fun updateStreak(newStreak: Int, timestamp: Long)
+
+    @Query("UPDATE user_profiles SET streakNotificationEnabled = :enabled WHERE id = 1")
+    suspend fun updateStreakNotification(enabled: Boolean)
+
     @Query("UPDATE user_profiles SET languageCode = :newLangCode WHERE id = 1")
     suspend fun updateLanguage(newLangCode: String)
 
