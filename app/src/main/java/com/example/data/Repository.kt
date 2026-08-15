@@ -47,8 +47,14 @@ class Repository(private val db: AppDatabase) {
     fun getStepsForLesson(lessonId: String): Flow<List<LessonStep>> =
         db.lessonStepDao().getStepsForLesson(lessonId)
 
+    suspend fun getStepsForLessonList(lessonId: String): List<LessonStep> =
+        db.lessonStepDao().getStepsForLessonList(lessonId)
+
     fun getQuizForLesson(lessonId: String): Flow<List<QuizQuestion>> =
         db.quizDao().getQuizForLesson(lessonId)
+
+    suspend fun getQuizForLessonList(lessonId: String): List<QuizQuestion> =
+        db.quizDao().getQuizForLessonList(lessonId)
 
     fun getProgressForLesson(lessonId: String): Flow<UserProgress?> =
         db.progressDao().getProgressForLesson(lessonId)
@@ -64,42 +70,9 @@ class Repository(private val db: AppDatabase) {
             db.challengeDao().updateChallengeStatus(id, completed)
             if (completed) {
                 // Award XP for completing offline daily challenge
-                db.userDao().addXp(20)
-                recordActivityAndIncrementStreak()
+                db.userDao().updateXpAndStreak(xpGained = 20, newStreak = 1)
             }
         }
-    }
-
-    suspend fun recordActivityAndIncrementStreak(): Int {
-        return safeDbCall {
-            val profile = db.userDao().getUserProfileSynchronous() ?: return@safeDbCall 1
-            val now = System.currentTimeMillis()
-            val calendarNow = java.util.Calendar.getInstance().apply { timeInMillis = now }
-            val calendarLast = java.util.Calendar.getInstance().apply { timeInMillis = profile.lastStreakTimestamp }
-
-            val isSameDay = profile.lastStreakTimestamp > 0L &&
-                    calendarNow.get(java.util.Calendar.YEAR) == calendarLast.get(java.util.Calendar.YEAR) &&
-                    calendarNow.get(java.util.Calendar.DAY_OF_YEAR) == calendarLast.get(java.util.Calendar.DAY_OF_YEAR)
-
-            val isYesterday = if (profile.lastStreakTimestamp > 0L) {
-                calendarLast.add(java.util.Calendar.DAY_OF_YEAR, 1)
-                calendarNow.get(java.util.Calendar.YEAR) == calendarLast.get(java.util.Calendar.YEAR) &&
-                        calendarNow.get(java.util.Calendar.DAY_OF_YEAR) == calendarLast.get(java.util.Calendar.DAY_OF_YEAR)
-            } else false
-
-            val newStreak = when {
-                isSameDay -> profile.streak
-                isYesterday || profile.lastStreakTimestamp == 0L -> (profile.streak + 1).coerceAtLeast(1)
-                else -> 1 // Reset if missed more than 1 day
-            }
-
-            db.userDao().updateStreak(newStreak, now)
-            newStreak
-        } ?: 1
-    }
-
-    suspend fun updateStreakNotification(enabled: Boolean) {
-        safeDbCall { db.userDao().updateStreakNotification(enabled) }
     }
 
     suspend fun addDiscussionPost(post: DiscussionPost) {
@@ -124,6 +97,10 @@ class Repository(private val db: AppDatabase) {
 
     suspend fun updateLessonUnlocked(lessonId: String, unlocked: Boolean) {
         safeDbCall { db.lessonDao().updateUnlockedStatus(lessonId, unlocked) }
+    }
+
+    suspend fun unlockAllLessons() {
+        safeDbCall { db.lessonDao().unlockAllLessons() }
     }
 
     suspend fun updateUserLanguage(langCode: String) {
@@ -167,15 +144,12 @@ class Repository(private val db: AppDatabase) {
 
             // Give XP if completed
             if (completed && !(existing?.isCompleted ?: false)) {
-                db.userDao().addXp(50)
-                recordActivityAndIncrementStreak()
+                db.userDao().updateXpAndStreak(xpGained = 50, newStreak = 1)
                 // auto-unlock next lesson
                 unlockNextLesson(lessonId)
             }
             if (quizCompleted && !(existing?.quizCompleted ?: false)) {
-                db.userDao().addXp(30)
-                recordActivityAndIncrementStreak()
-                unlockNextLesson(lessonId)
+                db.userDao().updateXpAndStreak(xpGained = 30, newStreak = 1)
             }
         }
     }
@@ -219,23 +193,26 @@ class Repository(private val db: AppDatabase) {
                 )
             }
 
-            // Check if lessons are fully populated (at least 10 lessons required)
+            // Prepopulate 10 standard lessons (incorporating small business plan & coding foundations)
+            val defaultLessons = listOf(
+                Lesson("html_1", "Intro to HTML (Web Layout)", "Mam's Spaza Shop Storefront", "HTML", "Beginner", 10, isUnlocked = true, isDownloaded = true, orderIndex = 1),
+                Lesson("css_2", "Adding Style with CSS", "Beautifying Your Online Catalog", "CSS", "Beginner", 15, isUnlocked = false, isDownloaded = false, orderIndex = 2),
+                Lesson("js_3", "Interactive JS Calculations", "Calculating Bread & Veggie Orders", "JavaScript", "Beginner", 20, isUnlocked = false, isDownloaded = false, orderIndex = 3),
+                Lesson("python_4", "Python Crop Agriculture Tracker", "Harvesting & Pricing Predictions", "Python", "Beginner", 25, isUnlocked = false, isDownloaded = false, orderIndex = 4),
+                Lesson("html_5", "StoryBrand Landing Page Layout", "Create High-Converting Headers", "HTML", "Beginner", 12, isUnlocked = true, isDownloaded = true, orderIndex = 5),
+                Lesson("css_6", "Visual Branding & Team Roles", "Color-Coding SOPs & Responsibilities", "CSS", "Beginner", 14, isUnlocked = false, isDownloaded = false, orderIndex = 6),
+                Lesson("js_7", "Spaza Profit Margin & Cash Flow Calculator", "Recession-Proof Income Trackers", "JavaScript", "Beginner", 18, isUnlocked = false, isDownloaded = false, orderIndex = 7),
+                Lesson("html_8", "Customer Feedback Form Setup", "Input Elements for Customer Lead Captures", "HTML", "Beginner", 15, isUnlocked = false, isDownloaded = false, orderIndex = 8),
+                Lesson("python_9", "90-Day Predictive Revenue Planner", "Systems & Loop-Based Growth Trackers", "Python", "Beginner", 22, isUnlocked = false, isDownloaded = false, orderIndex = 9),
+                Lesson("js_10", "SOP Task Automation Checklist Dashboard", "Scaling Spaza Systems Digitally", "JavaScript", "Beginner", 20, isUnlocked = false, isDownloaded = false, orderIndex = 10)
+            )
             val existingLessons = db.lessonDao().getAllLessonsList()
             if (existingLessons.size < 10) {
-                // 2. Prepopulate 10 standard lessons (incorporating small business plan & coding foundations)
-                val defaultLessons = listOf(
-                    Lesson("html_1", "Intro to HTML (Web Layout)", "Mam's Spaza Shop Storefront", "HTML", "Beginner", 10, isUnlocked = true, isDownloaded = true, orderIndex = 1),
-                    Lesson("css_2", "Adding Style with CSS", "Beautifying Your Online Catalog", "CSS", "Beginner", 15, isUnlocked = false, isDownloaded = false, orderIndex = 2),
-                    Lesson("js_3", "Interactive JS Calculations", "Calculating Bread & Veggie Orders", "JavaScript", "Beginner", 20, isUnlocked = false, isDownloaded = false, orderIndex = 3),
-                    Lesson("python_4", "Python Crop Agriculture Tracker", "Harvesting & Pricing Predictions", "Python", "Beginner", 25, isUnlocked = false, isDownloaded = false, orderIndex = 4),
-                    Lesson("html_5", "StoryBrand Landing Page Layout", "Create High-Converting Headers", "HTML", "Beginner", 12, isUnlocked = false, isDownloaded = false, orderIndex = 5),
-                    Lesson("css_6", "Visual Branding & Team Roles", "Color-Coding SOPs & Responsibilities", "CSS", "Beginner", 14, isUnlocked = false, isDownloaded = false, orderIndex = 6),
-                    Lesson("js_7", "Spaza Profit Margin & Cash Flow Calculator", "Recession-Proof Income Trackers", "JavaScript", "Beginner", 18, isUnlocked = false, isDownloaded = false, orderIndex = 7),
-                    Lesson("html_8", "Customer Feedback Form Setup", "Input Elements for Customer Lead Captures", "HTML", "Beginner", 15, isUnlocked = false, isDownloaded = false, orderIndex = 8),
-                    Lesson("python_9", "90-Day Predictive Revenue Planner", "Systems & Loop-Based Growth Trackers", "Python", "Beginner", 22, isUnlocked = false, isDownloaded = false, orderIndex = 9),
-                    Lesson("js_10", "SOP Task Automation Checklist Dashboard", "Scaling Spaza Systems Digitally", "JavaScript", "Beginner", 20, isUnlocked = false, isDownloaded = false, orderIndex = 10)
-                )
                 db.lessonDao().insertLessons(defaultLessons)
+            } else {
+                // Ensure html_5 is always unlocked
+                db.lessonDao().updateUnlockedStatus("html_5", true)
+            }
 
                 // 3. Prepopulate Lesson Steps
                 val defaultSteps = listOf(
@@ -292,7 +269,6 @@ class Repository(private val db: AppDatabase) {
                     QuizQuestion("q_js_10", "js_10", "In business scaling systems, what does SOP stand for?", "Ezinhlelweni zokukala ibhizinisi, amagama athi SOP amele ini?", "System Order Protocol", "Standard Operating Procedure", "Sales Optimization Plan", "Source Of Profit", 1, "SOP stands for Standard Operating Procedure, which is a set of step-by-step instructions compiled to help workers carry out routine operations.")
                 )
                 db.quizDao().insertQuizQuestions(defaultQuizzes)
-            }
 
             // 5. Prepopulate Coding Challenges
             val defaultChallenges = listOf(

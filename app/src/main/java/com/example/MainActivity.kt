@@ -80,7 +80,6 @@ fun MainAppScreen(viewModel: MainViewModel) {
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showOnboarding by remember { mutableStateOf(true) }
     var showOfflineAccountDialog by remember { mutableStateOf(false) }
-    var showStreakDialog by remember { mutableStateOf(false) }
     var showTourStep by remember { mutableStateOf<Int?>(null) }
 
     val downloadProgress by viewModel.downloadProgress.collectAsState()
@@ -118,8 +117,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         onEditProfile = { showOfflineAccountDialog = true },
                         onLanguageSelected = { code -> viewModel.changeLanguage(code) },
                         onStartTour = { showTourStep = 0 },
-                        onSettingsClick = { showSettingsDialog = true },
-                        onStreakClick = { showStreakDialog = true }
+                        onSettingsClick = { showSettingsDialog = true }
                     )
                 }
             },
@@ -159,12 +157,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
                                 label = "tabChange"
                             ) { tab ->
                                 when (tab) {
-                                    "home" -> DashboardTab(
-                                        viewModel = viewModel,
-                                        langCode = langCode,
-                                        onShowOnboarding = { showOnboarding = true },
-                                        onStreakClick = { showStreakDialog = true }
-                                    )
+                                    "home" -> DashboardTab(viewModel = viewModel, langCode = langCode, onShowOnboarding = { showOnboarding = true })
                                     "builds" -> BuildsTab(viewModel = viewModel, langCode = langCode)
                                     "learn" -> LearnTab(viewModel = viewModel, langCode = langCode)
                                     "ai_chat" -> AiChatTab(viewModel = viewModel, langCode = langCode)
@@ -177,15 +170,6 @@ fun MainAppScreen(viewModel: MainViewModel) {
                 }
             }
         }
-    }
-
-    if (showStreakDialog) {
-        StreakNotificationDialog(
-            viewModel = viewModel,
-            userProfile = userProfile,
-            langCode = langCode,
-            onDismiss = { showStreakDialog = false }
-        )
     }
 
     if (showLanguageDialog) {
@@ -407,8 +391,7 @@ fun AppHeader(
     onEditProfile: () -> Unit = {},
     onLanguageSelected: (String) -> Unit = {},
     onStartTour: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
-    onStreakClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -655,13 +638,7 @@ fun AppHeader(
                         }
                     }
 
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onStreakClick() }
-                            .padding(4.dp)
-                    ) {
+                    Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = Localization.translate("streak", langCode).uppercase(),
                             color = Color(0xFFFF5722),
@@ -763,12 +740,7 @@ data class PathwayItem(
 
 // ---------------------- TAB 1: DASHBOARD / HOME ----------------------
 @Composable
-fun DashboardTab(
-    viewModel: MainViewModel,
-    langCode: String,
-    onShowOnboarding: () -> Unit = {},
-    onStreakClick: () -> Unit = {}
-) {
+fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: () -> Unit = {}) {
     val lessons by viewModel.allLessons.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val challenges by viewModel.allChallenges.collectAsState()
@@ -1035,7 +1007,7 @@ fun DashboardTab(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // XP metric pill
+                            // 210 XP metric pill
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
@@ -1054,7 +1026,7 @@ fun DashboardTab(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = "${userProfile?.xp ?: 0} XP",
+                                        text = "210 XP",
                                         color = Color(0xFFB45309),
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 12.sp
@@ -1062,13 +1034,12 @@ fun DashboardTab(
                                 }
                             }
 
-                            // Streak metric pill
+                            // 3 Day Streak metric pill
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(Color(0xFFFFF7ED))
                                     .border(1.dp, Color(0xFFFED7AA), RoundedCornerShape(14.dp))
-                                    .clickable { onStreakClick() }
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
                                 Row(
@@ -1082,7 +1053,7 @@ fun DashboardTab(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = "${userProfile?.streak ?: 1} Day Streak",
+                                        text = "3 Day Streak",
                                         color = Color(0xFFC2410C),
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 12.sp
@@ -4290,25 +4261,64 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
             .padding(horizontal = 16.dp),
     ) {
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Your Mobile Coding Path",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Black,
-            color = Color.Black
-        )
-        Text(
-            text = "Select an interactive course below to build South African spaza applications and smart prediction crops forecasts.",
-            fontSize = 12.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 14.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Your Mobile Coding Path",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black
+                )
+                Text(
+                    text = "Select an interactive course below to build South African spaza applications and smart prediction crops forecasts.",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            
+            // Quick action to unlock all lessons if learner wants full access
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(ThemeGold.copy(alpha = 0.18f))
+                    .border(1.dp, ThemeGold, RoundedCornerShape(12.dp))
+                    .clickable { viewModel.unlockAllCourses() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.LockOpen,
+                        contentDescription = "Unlock all",
+                        tint = Color(0xFF8A6D00),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Unlock All",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF8A6D00)
+                    )
+                }
+            }
+        }
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 20.dp)
         ) {
             items(lessons) { lesson ->
-                val isUnlocked = lesson.isUnlocked || lesson.id == "html_1" // Force unlock html_1 just in case
+                val isUnlocked = lesson.isUnlocked || lesson.id == "html_1" || lesson.id == "html_5" // Force unlock html_1 and html_5
+
+                val translatedTitle = Localization.translate(lesson.id + "_title", langCode)
+                val displayTitle = if (translatedTitle == lesson.id + "_title") lesson.title else translatedTitle
+                val translatedDesc = Localization.translate(lesson.id + "_desc", langCode)
+                val displayDesc = if (translatedDesc == lesson.id + "_desc") lesson.titleLocalized else translatedDesc
 
                 Box(
                     modifier = Modifier
@@ -4380,6 +4390,7 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                                     modifier = Modifier
                                         .size(4.dp)
                                         .background(Color.Gray, RoundedCornerShape(2.dp))
+                                        .padding(bottom = 0.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -4390,13 +4401,13 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = Localization.translate(lesson.id + "_title", langCode),
+                                text = displayTitle,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isUnlocked) Color.Black else Color.Gray
                             )
                             Text(
-                                text = Localization.translate(lesson.id + "_desc", langCode),
+                                text = displayDesc,
                                 fontSize = 12.sp,
                                 color = if (isUnlocked) ThemeIndigo else Color.LightGray,
                                 fontWeight = FontWeight.Medium
@@ -9430,266 +9441,6 @@ fun OnboardingWinDialog(
         }
     }
 }
-
-// ---------------------- DIALOG: STREAK & NOTIFICATION MANAGEMENT ----------------------
-@Composable
-fun StreakNotificationDialog(
-    viewModel: MainViewModel,
-    userProfile: UserProfile?,
-    langCode: String,
-    onDismiss: () -> Unit
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val streakDays = userProfile?.streak ?: 1
-    val isNotificationEnabled = userProfile?.streakNotificationEnabled ?: true
-    val xp = userProfile?.xp ?: 0
-
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        androidx.compose.material3.Card(
-            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, ThemeCardBorder),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .testTag("streak_notification_dialog")
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(22.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Header with glowing flame
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(Color(0xFFFFEDD5), Color(0xFFFFDBA6), Color(0xFFFF5722).copy(alpha = 0.1f))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Whatshot,
-                        contentDescription = "Streak Flame",
-                        tint = Color(0xFFFF5722),
-                        modifier = Modifier.size(46.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Text(
-                    text = "$streakDays Day Coding Streak! 🔥",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF1E293B),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-
-                Text(
-                    text = "Keep your habit burning bright. Complete 1 lesson step or challenge every day to preserve your streak.",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                )
-
-                // 7-Day Weekday Tracker
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xFFFFF7ED))
-                        .border(1.dp, Color(0xFFFFEDD5), RoundedCornerShape(18.dp))
-                        .padding(14.dp)
-                ) {
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "THIS WEEK'S HABIT",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFC2410C)
-                            )
-                            Text(
-                                text = "XP: $xp",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFFB45309)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        val days = listOf("M", "T", "W", "T", "F", "S", "S")
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            days.forEachIndexed { index, day ->
-                                val isActive = index < (streakDays % 7).coerceAtLeast(1)
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (isActive) Color(0xFFFF5722) else Color.White
-                                            )
-                                            .border(
-                                                1.dp,
-                                                if (isActive) Color(0xFFFF5722) else Color(0xFFE2E8F0),
-                                                CircleShape
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (isActive) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Whatshot,
-                                                contentDescription = "Active day",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        } else {
-                                            Text(
-                                                text = day,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.Gray
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        text = day,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (isActive) Color(0xFFC2410C) else Color.Gray
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Daily Streak Bonus Claim
-                Button(
-                    onClick = { viewModel.claimDailyStreakBonus() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFFBEB), contentColor = Color(0xFFB45309)),
-                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .testTag("claim_streak_bonus_button")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(imageVector = Icons.Filled.Star, contentDescription = "Bonus", tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
-                        Text("Claim Daily Streak Bonus (+15 XP)", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Streak Notification Setting Card
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFFF8FAFC))
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Daily Reminder Notifications",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E293B)
-                            )
-                            Text(
-                                text = "Get notified before midnight so you never lose your fire.",
-                                fontSize = 10.sp,
-                                color = Color.Gray,
-                                lineHeight = 14.sp
-                            )
-                        }
-
-                        Switch(
-                            checked = isNotificationEnabled,
-                            onCheckedChange = { viewModel.toggleStreakNotification(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = ThemeIndigo
-                            ),
-                            modifier = Modifier.testTag("streak_notification_switch")
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Send Test Streak Notification Button
-                OutlinedButton(
-                    onClick = { viewModel.triggerStreakNotification(context) },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ThemeIndigo),
-                    border = BorderStroke(1.dp, ThemeIndigo.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .testTag("send_test_streak_notification_button")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(imageVector = Icons.Filled.NotificationsActive, contentDescription = "Test Notification", tint = ThemeIndigo, modifier = Modifier.size(18.dp))
-                        Text("Send Test Streak Notification 🔔", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Dismiss / Continue Button
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("dismiss_streak_dialog_button")
-                ) {
-                    Text("Keep Learning 🚀", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
-                }
-            }
-        }
-    }
-}
-
 
 
 

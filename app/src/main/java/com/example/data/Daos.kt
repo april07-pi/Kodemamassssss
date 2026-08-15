@@ -21,15 +21,6 @@ interface UserDao {
     @Query("UPDATE user_profiles SET xp = xp + :xpGained, streak = :newStreak WHERE id = 1")
     suspend fun updateXpAndStreak(xpGained: Int, newStreak: Int)
 
-    @Query("UPDATE user_profiles SET xp = xp + :xpGained WHERE id = 1")
-    suspend fun addXp(xpGained: Int)
-
-    @Query("UPDATE user_profiles SET streak = :newStreak, lastStreakTimestamp = :timestamp WHERE id = 1")
-    suspend fun updateStreak(newStreak: Int, timestamp: Long)
-
-    @Query("UPDATE user_profiles SET streakNotificationEnabled = :enabled WHERE id = 1")
-    suspend fun updateStreakNotification(enabled: Boolean)
-
     @Query("UPDATE user_profiles SET languageCode = :newLangCode WHERE id = 1")
     suspend fun updateLanguage(newLangCode: String)
 
@@ -63,6 +54,9 @@ interface LessonDao {
     @Query("UPDATE lessons SET isUnlocked = :unlocked WHERE id = :lessonId")
     suspend fun updateUnlockedStatus(lessonId: String, unlocked: Boolean)
 
+    @Query("UPDATE lessons SET isUnlocked = 1")
+    suspend fun unlockAllLessons()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLessons(lessons: List<Lesson>)
 }
@@ -72,6 +66,9 @@ interface LessonStepDao {
     @Query("SELECT * FROM lesson_steps WHERE lessonId = :lessonId ORDER BY stepNumber ASC")
     fun getStepsForLesson(lessonId: String): Flow<List<LessonStep>>
 
+    @Query("SELECT * FROM lesson_steps WHERE lessonId = :lessonId ORDER BY stepNumber ASC")
+    suspend fun getStepsForLessonList(lessonId: String): List<LessonStep>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSteps(steps: List<LessonStep>)
 }
@@ -80,6 +77,9 @@ interface LessonStepDao {
 interface QuizDao {
     @Query("SELECT * FROM quiz_questions WHERE lessonId = :lessonId")
     fun getQuizForLesson(lessonId: String): Flow<List<QuizQuestion>>
+
+    @Query("SELECT * FROM quiz_questions WHERE lessonId = :lessonId")
+    suspend fun getQuizForLessonList(lessonId: String): List<QuizQuestion>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuizQuestions(questions: List<QuizQuestion>)
