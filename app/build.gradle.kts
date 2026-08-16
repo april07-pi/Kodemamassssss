@@ -12,7 +12,7 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.kodemamas.hftxyz"
-    minSdk = 24
+    minSdk = 23
     targetSdk = 36
     versionCode = 22
     versionName = "22.0"
