@@ -736,19 +736,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _aiGenerating.value = true
 
-            // Generate response
-            if (!_isOnline.value) {
-                delay(1200) // fast realistic delay offline simulation
-                val fallbackReply = generateOfflineRecommendation(trimmed)
-                repository.insertChatMessage(MentorChat(isAi = true, isUser = false, messageText = fallbackReply))
-                _aiGenerating.value = false
-            } else {
-                // Create context prompt
-                val systemPrompt = "You are an empathetic, patient, and highly encouraging Socratic AI Builder Coach for KodeMamas. Inspired by SuaCode's Kwame 2.0 (tested with thousands of learners across African countries), your mission is to transform learners into independent Builders who turn real problems into working technology. NEVER just give out raw code immediately when requested; instead ask guiding questions like 'Before I give you code, tell me what this button/function should do in plain words.' Guide them through: Discover -> Define -> Design -> Learn -> Build -> Test -> Improve -> Showcase. Keep explanations friendly, simple, and under 150 words in all 11 official South African languages plus SASL."
-                val aiResponse = GeminiService.generateResponse(trimmed, systemPrompt)
-                repository.insertChatMessage(MentorChat(isAi = true, isUser = false, messageText = aiResponse))
-                _aiGenerating.value = false
-            }
+            val langCode = userProfile.value?.languageCode ?: "en"
+            val userRole = userProfile.value?.role ?: "Mama"
+            val systemPrompt = "You are an empathetic, patient, and highly encouraging Socratic AI Builder Coach for KodeMamas. You are assisting a $userRole in South Africa. Your mission is to transform learners into independent Builders who turn real problems into working technology. NEVER just give out raw code immediately when requested; instead ask guiding questions like 'Before I give you code, tell me what this button/function should do in plain words.' Guide them through: Discover -> Define -> Design -> Learn -> Build -> Test -> Improve -> Showcase. Keep explanations friendly, simple, and under 150 words in all 11 official South African languages plus SASL."
+
+            // Generate AI response via Gemini or On-Device Socratic Engine
+            delay(400) // Brief natural pacing
+            val aiResponse = GeminiService.generateResponse(
+                prompt = trimmed,
+                systemInstruction = systemPrompt,
+                userLanguage = langCode
+            )
+            repository.insertChatMessage(MentorChat(isAi = true, isUser = false, messageText = aiResponse))
+            _aiGenerating.value = false
         }
     }
 

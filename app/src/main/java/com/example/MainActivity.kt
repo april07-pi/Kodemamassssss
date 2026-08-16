@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -4268,13 +4269,13 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Your Mobile Coding Path",
+                    text = Localization.translate("mobile_coding_path", langCode),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = Color.Black
                 )
                 Text(
-                    text = "Select an interactive course below to build South African spaza applications and smart prediction crops forecasts.",
+                    text = Localization.translate("mobile_coding_desc", langCode),
                     fontSize = 12.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -4299,7 +4300,7 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Unlock All",
+                        text = Localization.translate("unlock_all", langCode),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF8A6D00)
@@ -4768,7 +4769,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             shape = RoundedCornerShape(14.dp),
                             border = BorderStroke(1.dp, ThemeIndigo)
                         ) {
-                            Text(text = "Previous", color = ThemeIndigo, fontWeight = FontWeight.Bold)
+                            Text(text = Localization.translate("previous_step", langCode), color = ThemeIndigo, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -4782,7 +4783,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
-                            text = if (stepIndex == steps.size - 1) "Launch Assessment ⭐" else "Next Step",
+                            text = if (stepIndex == steps.size - 1) Localization.translate("launch_assessment", langCode) else Localization.translate("next_step", langCode),
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
@@ -4810,7 +4811,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = "MULTIPLE CHOICE QUIZ",
+                                    text = Localization.translate("multiple_choice_quiz", langCode),
                                     color = ThemeIndigo,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 9.sp
@@ -4914,7 +4915,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                         ) {
                             Column {
                                 Text(
-                                    text = if (quizCorrect) "Halala! Correct Answer! 🎉" else "Hawu! Not quite right.",
+                                    text = if (quizCorrect) Localization.translate("quiz_correct_msg", langCode) else Localization.translate("quiz_wrong_msg", langCode),
                                     color = if (quizCorrect) Color(0xFF137333) else Color(0xFFC5221F),
                                     fontWeight = FontWeight.Black,
                                     fontSize = 13.sp
@@ -4939,7 +4940,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             shape = RoundedCornerShape(14.dp),
                             enabled = selectedAns != -1
                         ) {
-                            Text(text = "Verify Answer", fontWeight = FontWeight.Bold)
+                            Text(text = Localization.translate("verify_answer", langCode), fontWeight = FontWeight.Bold)
                         }
                     } else {
                         Button(
@@ -4949,7 +4950,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             Text(
-                                text = if (quizIndex == quizQuestions.size - 1) "Complete Quiz! 🏁" else "Next Question",
+                                text = if (quizIndex == quizQuestions.size - 1) Localization.translate("complete_quiz", langCode) else Localization.translate("next_question", langCode),
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -4991,7 +4992,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                 colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
                                 shape = RoundedCornerShape(14.dp)
                             ) {
-                                Text(text = "Back to Path Map", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(text = Localization.translate("back_to_path", langCode), color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -5007,8 +5008,28 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
     val chats by viewModel.aiChats.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val isGenerating by viewModel.aiGenerating.collectAsState()
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
     var textInput by remember { mutableStateOf("") }
+
+    val suggestionChips = listOf(
+        "📈 Donald Miller 6-Step Plan",
+        "🌐 HTML Headers & Buttons",
+        "🎨 CSS Styling Tips",
+        "⚡ JavaScript Calculations",
+        "🐍 Python Crop Predictor",
+        "👩‍💻 Socratic AI Coach",
+        "🇿🇦 Sawubona (isiZulu)",
+        "🇿🇦 Molo (isiXhosa)"
+    )
+
+    // Auto-scroll on new message
+    LaunchedEffect(chats.size, isGenerating) {
+        if (chats.isNotEmpty()) {
+            listState.animateScrollToItem(chats.size - 1)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -5026,29 +5047,48 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(17.dp))
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
                         .background(ThemeGold),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "🤖", fontSize = 16.sp)
+                    Text(text = "🤖", fontSize = 18.sp)
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "KodeMamas AI Coach",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(ThemeGold.copy(alpha = 0.25f))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Socratic AI",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ThemeGold
+                            )
+                        }
+                    }
                     Text(
-                        text = "KodeMamas AI Helper",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = if (isOnline) "Equipped with Gemini Smart Assistant" else "Offline-Ready Response Assistant Mode",
+                        text = if (isOnline) "⚡ Gemini 3.5 Flash Active" else "🛡️ On-Device Socratic Engine",
                         fontSize = 10.sp,
                         color = ThemeGold
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { viewModel.clearAiMessages() }) {
+                IconButton(
+                    onClick = { viewModel.clearAiMessages() },
+                    modifier = Modifier.testTag("ai_clear_chats_button")
+                ) {
                     Icon(imageVector = Icons.Default.Refresh, contentDescription = "Clear Chats", tint = Color.White)
                 }
             }
@@ -5056,9 +5096,10 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
 
         // Messages list
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = 12.dp),
+                .padding(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             reverseLayout = false
         ) {
@@ -5071,7 +5112,7 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.82f)
+                            .fillMaxWidth(0.85f)
                             .clip(
                                 RoundedCornerShape(
                                     topStart = 16.dp,
@@ -5081,14 +5122,14 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
                                 )
                             )
                             .background(if (fromUser) ThemeIndigo else Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
+                            .border(1.dp, if (fromUser) ThemeIndigo else ThemeCardBorder, RoundedCornerShape(16.dp))
                             .padding(12.dp)
                     ) {
                         Text(
                             text = msg.messageText,
                             color = if (fromUser) Color.White else Color.Black,
                             fontSize = 13.sp,
-                            lineHeight = 17.sp
+                            lineHeight = 18.sp
                         )
                     }
                 }
@@ -5096,12 +5137,45 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
 
             if (isGenerating) {
                 item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    ) {
+                        Text(
+                            text = "Mama Assistant is compiling response...",
+                            color = ThemeIndigo,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Quick Suggestion Chips
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            items(suggestionChips) { chip ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(ThemeCardBorder.copy(alpha = 0.35f))
+                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(12.dp))
+                        .clickable {
+                            val cleanPrompt = chip.substringAfter(" ").trim()
+                            viewModel.sendAiChat(cleanPrompt)
+                        }
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
                     Text(
-                        text = "Mama Assistant is typing in local code blocks...",
-                        color = ThemeIndigo,
+                        text = chip,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 4.dp)
+                        fontWeight = FontWeight.Medium,
+                        color = Color.DarkGray
                     )
                 }
             }
@@ -5118,7 +5192,8 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
                 onValueChange = { textInput = it },
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(16.dp)),
+                    .clip(RoundedCornerShape(16.dp))
+                    .testTag("ai_chat_input"),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.White,
                     unfocusedContainerColor = Color.White,
@@ -5135,7 +5210,7 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
 
             IconButton(
                 onClick = {
-                    if (textInput.isNotEmpty()) {
+                    if (textInput.isNotBlank()) {
                         viewModel.sendAiChat(textInput)
                         textInput = ""
                     }
@@ -5144,6 +5219,7 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
                     .size(48.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .background(ThemeIndigo)
+                    .testTag("ai_send_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.Send,
