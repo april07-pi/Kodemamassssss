@@ -108,6 +108,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _customApiKey = MutableStateFlow(prefs.getString("custom_gemini_api_key", "") ?: "")
     val customApiKey: StateFlow<String> = _customApiKey.asStateFlow()
 
+    // Role-Based Access Control (RBAC) & Admin Route Protection
+    val isAdmin: StateFlow<Boolean> = userProfile
+        .map { SecurityUtils.hasAdminAccess(it?.role, it?.email) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    // Masked API key flow for secure presentation
+    val maskedApiKey: StateFlow<String> = _customApiKey
+        .map { key -> SecurityUtils.maskApiKey(key.ifBlank { GeminiService.getEffectiveApiKey() }) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "••••••••")
+
+    // Cryptographic Authentication & Password Management State
+    private val _isAuthenticated = MutableStateFlow(prefs.getBoolean("user_authenticated", true))
+    val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
+
+    fun setSecurePassword(plainTextPassword: String): Boolean {
+        if (plainTextPassword.length < 6) return false
+        val hashResult = SecurityUtils.hashPassword(plainTextPassword)
+        prefs.edit()
+            .putString("auth_pwd_hash", hashResult.hashBase64)
+            .putString("auth_pwd_salt", hashResult.saltBase64)
+            .putBoolean("has_set_password", true)
+            .apply()
+        _isAuthenticated.value = true
+        return true
+    }
+
+    fun verifyAndLogin(candidatePassword: String): Boolean {
+        val storedHash = prefs.getString("auth_pwd_hash", null) ?: return false
+        val storedSalt = prefs.getString("auth_pwd_salt", null) ?: return false
+        val valid = SecurityUtils.verifyPassword(candidatePassword, storedHash, storedSalt)
+        if (valid) {
+            _isAuthenticated.value = true
+        }
+        return valid
+    }
+
+    fun logout() {
+        _isAuthenticated.value = false
+    }
+
     // Google Search Grounding & Gemini AI Status
     private val _isGoogleSearchEnabled = MutableStateFlow(prefs.getBoolean("google_search_grounding", true))
     val isGoogleSearchEnabled: StateFlow<Boolean> = _isGoogleSearchEnabled.asStateFlow()
@@ -452,14 +492,21 @@ Think like a tech leader: If you were creating a system request to solve a chall
 
     // Community section - Add post
     fun addForumPost(content: String) {
-        if (content.trim().isEmpty()) return
+        val sanitized = SecurityUtils.sanitizeInput(content, maxLength = 1000)
+        if (sanitized.isEmpty()) return
+
+        // Rate limiting: Maximum 6 forum posts per minute
+        if (!SecurityUtils.RateLimiter.isAllowed("forum_post", maxRequests = 6, windowMillis = 60_000L)) {
+            return
+        }
+
         viewModelScope.launch {
             val profile = userProfile.value ?: return@launch
             val newPost = DiscussionPost(
                 id = "post_${System.currentTimeMillis()}",
-                author = profile.name + " (" + (if (profile.role == "Mama") "Mama" else "Student") + ")",
-                role = profile.role,
-                content = content,
+                author = SecurityUtils.sanitizePlainText(profile.name + " (" + (if (profile.role == "Mama") "Mama" else "Student") + ")", maxLength = 80),
+                role = SecurityUtils.sanitizePlainText(profile.role, maxLength = 40),
+                content = sanitized,
                 timestamp = System.currentTimeMillis(),
                 likes = 0,
                 commentCount = 0,
@@ -476,7 +523,7 @@ Think like a tech leader: If you were creating a system request to solve a chall
     }
 
     fun setCustomApiKey(key: String) {
-        val trimmed = key.trim()
+        val trimmed = SecurityUtils.sanitizePlainText(key.trim(), maxLength = 128)
         prefs.edit().putString("custom_gemini_api_key", trimmed).apply()
         _customApiKey.value = trimmed
         GeminiService.setCustomApiKey(trimmed)
@@ -560,9 +607,11 @@ Think like a tech leader: If you were creating a system request to solve a chall
     }
 
     fun updateProfileName(newName: String) {
+        val cleanName = SecurityUtils.sanitizePlainText(newName, maxLength = 80)
+        if (cleanName.isBlank()) return
         val current = userProfile.value ?: return
         viewModelScope.launch {
-            repository.updateProfile(current.copy(name = newName))
+            repository.updateProfile(current.copy(name = cleanName))
         }
     }
 
@@ -628,16 +677,17 @@ Think like a tech leader: If you were creating a system request to solve a chall
 
     fun submitRating(rating: Int, comment: String = "") {
         val bounded = rating.coerceIn(1, 5)
+        val cleanComment = SecurityUtils.sanitizeInput(comment, maxLength = 500)
         prefs.edit().putInt("user_rating", bounded).apply()
         _userRating.value = bounded
-        if (comment.isNotBlank()) {
+        if (cleanComment.isNotBlank()) {
             viewModelScope.launch {
                 repository.addDiscussionPost(
                     DiscussionPost(
                         id = "rating_${System.currentTimeMillis()}",
-                        author = userProfile.value?.name ?: "Community Learner",
-                        role = userProfile.value?.role ?: "Student",
-                        content = "⭐ Rated KodeMamas $bounded/5 Stars: \"$comment\"",
+                        author = SecurityUtils.sanitizePlainText(userProfile.value?.name ?: "Community Learner", maxLength = 80),
+                        role = SecurityUtils.sanitizePlainText(userProfile.value?.role ?: "Student", maxLength = 40),
+                        content = "⭐ Rated KodeMamas $bounded/5 Stars: \"$cleanComment\"",
                         timestamp = System.currentTimeMillis(),
                         likes = 5,
                         commentCount = 1,
@@ -649,14 +699,19 @@ Think like a tech leader: If you were creating a system request to solve a chall
     }
 
     fun submitFeedback(category: String, message: String) {
-        if (message.isBlank()) return
+        val cleanCat = SecurityUtils.sanitizePlainText(category, maxLength = 50)
+        val cleanMsg = SecurityUtils.sanitizeInput(message, maxLength = 1000)
+        if (cleanMsg.isBlank()) return
+        if (!SecurityUtils.RateLimiter.isAllowed("feedback_submit", maxRequests = 5, windowMillis = 60_000L)) {
+            return
+        }
         viewModelScope.launch {
             repository.addDiscussionPost(
                 DiscussionPost(
                     id = "feedback_${System.currentTimeMillis()}",
-                    author = userProfile.value?.name ?: "Community Learner",
-                    role = userProfile.value?.role ?: "Student",
-                    content = "[$category] $message",
+                    author = SecurityUtils.sanitizePlainText(userProfile.value?.name ?: "Community Learner", maxLength = 80),
+                    role = SecurityUtils.sanitizePlainText(userProfile.value?.role ?: "Student", maxLength = 40),
+                    content = "[$cleanCat] $cleanMsg",
                     timestamp = System.currentTimeMillis(),
                     likes = 1,
                     commentCount = 0,
@@ -691,6 +746,12 @@ Think like a tech leader: If you were creating a system request to solve a chall
     }
 
     fun updateFirebaseConfig(url: String, projectId: String) {
+        // Protect admin routes: Verify user has administrative access
+        val profile = userProfile.value
+        if (!SecurityUtils.hasAdminAccess(profile?.role, profile?.email)) {
+            android.util.Log.w("SecurityAdmin", "Unauthorized attempt to modify Firebase backend configuration")
+            return
+        }
         firebaseService.updateFirebaseConfig(url, projectId)
     }
 

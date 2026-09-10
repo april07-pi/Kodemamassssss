@@ -37,6 +37,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -346,7 +348,8 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         Button(
                             onClick = {
                                 if (editNameInput.isNotBlank()) {
-                                    viewModel.updateProfileName(editNameInput.trim())
+                                    val safeName = SecurityUtils.sanitizePlainText(editNameInput.trim(), maxLength = 80)
+                                    viewModel.updateProfileName(safeName)
                                 }
                                 showEditProfileDialog = false
                             },
@@ -2770,6 +2773,7 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
     var textInput by remember { mutableStateOf("") }
     var showKeyDialog by remember { mutableStateOf(false) }
     var keyInput by remember(customApiKey) { mutableStateOf(customApiKey) }
+    var isKeyVisible by remember { mutableStateOf(false) }
 
     if (showKeyDialog) {
         AlertDialog(
@@ -2874,7 +2878,7 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
                     }
 
                     Text(
-                        text = if (customApiKey.isNotBlank()) "✅ Custom Gemini API Key configured" else "⚡ Using AI Studio / Cloud Gemini Key",
+                        text = if (customApiKey.isNotBlank()) "✅ Custom Gemini API Key: ${SecurityUtils.maskApiKey(customApiKey)}" else "⚡ Using AI Studio / Cloud Gemini Key",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (customApiKey.isNotBlank()) Color(0xFF00E676) else Color(0xFFFFC107)
@@ -2886,6 +2890,16 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
                         placeholder = { Text("Paste AI Studio API key here...", color = Color.Gray, fontSize = 11.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
+                                Icon(
+                                    imageVector = if (isKeyVisible) Icons.Default.Lock else Icons.Default.Visibility,
+                                    contentDescription = if (isKeyVisible) "Hide Key" else "Reveal Key",
+                                    tint = Color(0xFFFFC107)
+                                )
+                            }
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,

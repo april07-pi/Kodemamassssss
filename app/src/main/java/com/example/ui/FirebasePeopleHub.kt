@@ -52,6 +52,7 @@ fun FirebasePeopleHub(
     val dbUrl by viewModel.firebaseDbUrl.collectAsState()
     val projectId by viewModel.firebaseProjectId.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val isAdmin by viewModel.isAdmin.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedRoleFilter by remember { mutableStateOf("All") }
@@ -138,9 +139,15 @@ fun FirebasePeopleHub(
                         )
                     }
 
-                    // Firebase Settings button
+                    // Firebase Settings button (Admin Route Protected)
                     IconButton(
-                        onClick = { showFirebaseConfigDialog = true },
+                        onClick = {
+                            if (isAdmin || userProfile?.role?.contains("Founder", ignoreCase = true) == true || userProfile?.role?.contains("Admin", ignoreCase = true) == true) {
+                                showFirebaseConfigDialog = true
+                            } else {
+                                Toast.makeText(context, "Admin authorization required to modify backend endpoints", Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         modifier = Modifier.size(28.dp)
                     ) {
                         Icon(

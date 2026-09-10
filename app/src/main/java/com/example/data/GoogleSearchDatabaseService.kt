@@ -46,20 +46,30 @@ data class WebSource(
 
 object GoogleSearchDatabaseService {
     private val client = OkHttpClient.Builder()
+        .addInterceptor(SecurityUtils.SecurityHeadersInterceptor())
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
     suspend fun searchDatabase(query: String): GoogleSearchResult = withContext(Dispatchers.IO) {
-        val trimmed = query.trim()
-        if (trimmed.isEmpty()) {
-            return@withContext GoogleSearchResult(query = trimmed, isOnline = false)
+        val sanitized = SecurityUtils.sanitizePlainText(query, maxLength = 200)
+        if (sanitized.isEmpty()) {
+            return@withContext GoogleSearchResult(query = "", isOnline = false)
+        }
+
+        // Rate limiting for web searches: maximum 20 requests per minute
+        if (!SecurityUtils.RateLimiter.isAllowed("web_search", maxRequests = 20, windowMillis = 60_000L)) {
+            return@withContext GoogleSearchResult(
+                query = sanitized,
+                directAnswer = "Search query rate limit reached. Using offline local knowledge engine.",
+                isOnline = false
+            )
         }
 
         val encodedQuery = try {
-            URLEncoder.encode(trimmed, StandardCharsets.UTF_8.toString())
+            URLEncoder.encode(sanitized, StandardCharsets.UTF_8.toString())
         } catch (_: Exception) {
-            trimmed.replace(" ", "+")
+            sanitized.replace(" ", "+")
         }
 
         val relatedQueries = mutableListOf<String>()
@@ -155,7 +165,7 @@ object GoogleSearchDatabaseService {
         if (sources.isEmpty()) {
             sources.add(
                 WebSource(
-                    title = "Google Search: $trimmed",
+                    title = "Google Search: $sanitized",
                     snippet = "Live web search results indexed in Google Database.",
                     url = "https://www.google.com/search?q=$encodedQuery"
                 )
@@ -163,7 +173,7 @@ object GoogleSearchDatabaseService {
         }
 
         GoogleSearchResult(
-            query = trimmed,
+            query = sanitized,
             relatedQueries = relatedQueries.take(8),
             directAnswer = directAnswer,
             sources = sources.take(6),

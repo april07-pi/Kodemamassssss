@@ -17,6 +17,7 @@ object GeminiService {
     const val MODEL_GEMINI_FLASH_LATEST = "gemini-flash-latest"
 
     private val client = OkHttpClient.Builder()
+        .addInterceptor(SecurityUtils.SecurityHeadersInterceptor())
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
@@ -110,6 +111,17 @@ object GeminiService {
         isOnline: Boolean = true,
         languageCode: String = "auto"
     ): String = withContext(Dispatchers.IO) {
+        val sanitizedPrompt = SecurityUtils.sanitizeInput(prompt, maxLength = 2500)
+        if (sanitizedPrompt.isBlank()) {
+            return@withContext "Please enter a valid prompt or question."
+        }
+
+        // Rate limiting: Maximum 15 AI requests per minute
+        if (!SecurityUtils.RateLimiter.isAllowed("gemini_api", maxRequests = 15, windowMillis = 60_000L)) {
+            val waitSec = SecurityUtils.RateLimiter.getCooldownSeconds("gemini_api", 60_000L)
+            return@withContext "⚠️ Rate limit protection: Please wait ${waitSec}s before sending another AI question to preserve network quotas."
+        }
+
         val apiKey = getEffectiveApiKey()
         val shouldSearchGoogle = enableGoogleSearch && googleSearchGroundingEnabled && isOnline
         val effectiveLang = if (languageCode.isNotBlank() && languageCode != "auto") languageCode else activeLanguageCode
@@ -124,7 +136,7 @@ object GeminiService {
         var liveSearchResult: GoogleSearchResult? = null
         if (shouldSearchGoogle) {
             try {
-                liveSearchResult = GoogleSearchDatabaseService.searchDatabase(prompt)
+                liveSearchResult = GoogleSearchDatabaseService.searchDatabase(sanitizedPrompt)
             } catch (_: Exception) {}
         }
 
@@ -135,14 +147,14 @@ object GeminiService {
             for (model in candidateModels) {
                 // First attempt: with native Google Search Grounding tool
                 if (shouldSearchGoogle) {
-                    val groundedOutput = tryCallGeminiWithTool(model, apiKey, prompt, combinedSystemInstruction, liveSearchResult)
+                    val groundedOutput = tryCallGeminiWithTool(model, apiKey, sanitizedPrompt, combinedSystemInstruction, liveSearchResult)
                     if (groundedOutput != null) {
                         return@withContext formatOutput(groundedOutput)
                     }
                 }
 
                 // Fallback attempt: standard Gemini call with injected search database context
-                val standardOutput = tryCallGeminiStandard(model, apiKey, prompt, combinedSystemInstruction, liveSearchResult)
+                val standardOutput = tryCallGeminiStandard(model, apiKey, sanitizedPrompt, combinedSystemInstruction, liveSearchResult)
                 if (standardOutput != null) {
                     return@withContext formatOutput(standardOutput)
                 }
@@ -151,11 +163,11 @@ object GeminiService {
 
         // 3. If API Key is missing or live Gemini call failed, synthesize answer using live Google Search Database + intelligent local engine
         if (isOnline && shouldSearchGoogle && liveSearchResult != null) {
-            return@withContext ComprehensiveLocalAiEngine.generateUnrestrictedAnswer(prompt, liveSearchResult, effectiveLang)
+            return@withContext ComprehensiveLocalAiEngine.generateUnrestrictedAnswer(sanitizedPrompt, liveSearchResult, effectiveLang)
         }
 
         // 4. Offline or local AI answer
-        return@withContext ComprehensiveLocalAiEngine.generateUnrestrictedAnswer(prompt, null, effectiveLang)
+        return@withContext ComprehensiveLocalAiEngine.generateUnrestrictedAnswer(sanitizedPrompt, null, effectiveLang)
     }
 
     private fun tryCallGeminiWithTool(

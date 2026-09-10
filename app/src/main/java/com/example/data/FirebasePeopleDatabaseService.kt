@@ -31,6 +31,7 @@ class FirebasePeopleDatabaseService(
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val client = OkHttpClient.Builder()
+        .addInterceptor(SecurityUtils.SecurityHeadersInterceptor())
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
@@ -79,11 +80,17 @@ class FirebasePeopleDatabaseService(
 
     fun updateFirebaseConfig(url: String, projId: String) {
         val cleanUrl = url.trim().removeSuffix("/")
-        val cleanProj = projId.trim()
-        _databaseUrl.value = cleanUrl
+        val safeUrl = if (SecurityUtils.isSecureHttpsEndpoint(cleanUrl)) {
+            cleanUrl
+        } else {
+            Log.w(TAG, "Insecure or invalid Firebase URL blocked: $cleanUrl. Reverting to safe default.")
+            DEFAULT_DATABASE_URL
+        }
+        val cleanProj = SecurityUtils.sanitizePlainText(projId.trim(), maxLength = 64)
+        _databaseUrl.value = safeUrl
         _projectId.value = cleanProj
         prefs.edit()
-            .putString(PREF_KEY_URL, cleanUrl)
+            .putString(PREF_KEY_URL, safeUrl)
             .putString(PREF_KEY_PROJECT, cleanProj)
             .apply()
 
@@ -97,6 +104,11 @@ class FirebasePeopleDatabaseService(
     }
 
     suspend fun syncWithFirebase(): Boolean = withContext(Dispatchers.IO) {
+        if (!SecurityUtils.RateLimiter.isAllowed("firebase_sync", maxRequests = 10, windowMillis = 60_000L)) {
+            _statusMessage.value = "Sync rate limit reached (cached data active)"
+            return@withContext false
+        }
+
         _connectionStatus.value = FirebaseConnectionStatus.SYNCING
         _statusMessage.value = "Connecting to Firebase Database..."
 
@@ -152,29 +164,48 @@ class FirebasePeopleDatabaseService(
 
     suspend fun pushPersonToFirebase(person: PersonEntity): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (!SecurityUtils.RateLimiter.isAllowed("firebase_push", maxRequests = 12, windowMillis = 60_000L)) {
+                _statusMessage.value = "Profile update rate limit reached. Please wait."
+                return@withContext false
+            }
+
+            // Defensive sanitization of all user-entered profile fields
+            val sanitizedPerson = person.copy(
+                name = SecurityUtils.sanitizePlainText(person.name, maxLength = 100),
+                email = SecurityUtils.sanitizePlainText(person.email, maxLength = 120),
+                role = SecurityUtils.sanitizePlainText(person.role, maxLength = 60),
+                townshipOrCity = SecurityUtils.sanitizePlainText(person.townshipOrCity, maxLength = 80),
+                province = SecurityUtils.sanitizePlainText(person.province, maxLength = 60),
+                primaryLanguage = SecurityUtils.sanitizePlainText(person.primaryLanguage, maxLength = 30),
+                bio = SecurityUtils.sanitizeInput(person.bio, maxLength = 800),
+                skills = SecurityUtils.sanitizePlainText(person.skills, maxLength = 300),
+                githubOrPortfolio = SecurityUtils.sanitizePlainText(person.githubOrPortfolio, maxLength = 200),
+                linkedinUrl = SecurityUtils.sanitizePlainText(person.linkedinUrl, maxLength = 200)
+            )
+
             // 1. Save locally to Room immediately
-            personDao.insertOrUpdatePerson(person)
+            personDao.insertOrUpdatePerson(sanitizedPerson)
 
             // 2. Push to Firebase Database /people/{id}.json
-            val endpoint = "${_databaseUrl.value}/people/${person.id}.json"
+            val endpoint = "${_databaseUrl.value}/people/${sanitizedPerson.id}.json"
             val json = JSONObject().apply {
-                put("id", person.id)
-                put("name", person.name)
-                put("email", person.email)
-                put("role", person.role)
-                put("townshipOrCity", person.townshipOrCity)
-                put("province", person.province)
-                put("primaryLanguage", person.primaryLanguage)
-                put("bio", person.bio)
-                put("skills", person.skills)
-                put("githubOrPortfolio", person.githubOrPortfolio)
-                put("linkedinUrl", person.linkedinUrl)
-                put("isMentorAvailable", person.isMentorAvailable)
-                put("xp", person.xp)
-                put("streak", person.streak)
-                put("badge", person.badge)
-                put("lastActive", person.lastActive)
-                put("isVerified", person.isVerified)
+                put("id", sanitizedPerson.id)
+                put("name", sanitizedPerson.name)
+                put("email", sanitizedPerson.email)
+                put("role", sanitizedPerson.role)
+                put("townshipOrCity", sanitizedPerson.townshipOrCity)
+                put("province", sanitizedPerson.province)
+                put("primaryLanguage", sanitizedPerson.primaryLanguage)
+                put("bio", sanitizedPerson.bio)
+                put("skills", sanitizedPerson.skills)
+                put("githubOrPortfolio", sanitizedPerson.githubOrPortfolio)
+                put("linkedinUrl", sanitizedPerson.linkedinUrl)
+                put("isMentorAvailable", sanitizedPerson.isMentorAvailable)
+                put("xp", sanitizedPerson.xp)
+                put("streak", sanitizedPerson.streak)
+                put("badge", sanitizedPerson.badge)
+                put("lastActive", sanitizedPerson.lastActive)
+                put("isVerified", sanitizedPerson.isVerified)
             }
 
             val body = json.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
