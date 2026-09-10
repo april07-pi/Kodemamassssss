@@ -12,20 +12,19 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.kodemamas.hftxyz"
-    minSdk = 23
+    minSdk = 24
     targetSdk = 36
-    versionCode = 22
-    versionName = "22.0"
+    versionCode = 26
+    versionName = "1.2.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val keystoreFile = file(keystorePath)
-      if (keystoreFile.exists()) {
-        storeFile = keystoreFile
+      val customKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) } ?: file("${rootDir}/my-upload-key.jks")
+      if (customKeystore.exists()) {
+        storeFile = customKeystore
         storePassword = System.getenv("STORE_PASSWORD")
         keyAlias = "upload"
         keyPassword = System.getenv("KEY_PASSWORD")
@@ -78,6 +77,8 @@ secrets {
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
+  implementation(libs.firebase.database)
+  implementation(libs.firebase.firestore)
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)

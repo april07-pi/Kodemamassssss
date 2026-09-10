@@ -32,9 +32,6 @@ interface UserDao {
 
     @Query("UPDATE user_profiles SET isPremium = :isPremium WHERE id = 1")
     suspend fun updatePremiumStatus(isPremium: Boolean)
-
-    @Query("UPDATE user_profiles SET isPlus = :isPlus WHERE id = 1")
-    suspend fun updatePlusStatus(isPlus: Boolean)
 }
 
 @Dao
@@ -45,17 +42,11 @@ interface LessonDao {
     @Query("SELECT * FROM lessons WHERE id = :lessonId LIMIT 1")
     suspend fun getLessonById(lessonId: String): Lesson?
 
-    @Query("SELECT * FROM lessons")
-    suspend fun getAllLessonsList(): List<Lesson>
-
     @Query("UPDATE lessons SET isDownloaded = :downloaded WHERE id = :lessonId")
     suspend fun updateDownloadedStatus(lessonId: String, downloaded: Boolean)
 
     @Query("UPDATE lessons SET isUnlocked = :unlocked WHERE id = :lessonId")
     suspend fun updateUnlockedStatus(lessonId: String, unlocked: Boolean)
-
-    @Query("UPDATE lessons SET isUnlocked = 1")
-    suspend fun unlockAllLessons()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLessons(lessons: List<Lesson>)
@@ -66,9 +57,6 @@ interface LessonStepDao {
     @Query("SELECT * FROM lesson_steps WHERE lessonId = :lessonId ORDER BY stepNumber ASC")
     fun getStepsForLesson(lessonId: String): Flow<List<LessonStep>>
 
-    @Query("SELECT * FROM lesson_steps WHERE lessonId = :lessonId ORDER BY stepNumber ASC")
-    suspend fun getStepsForLessonList(lessonId: String): List<LessonStep>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSteps(steps: List<LessonStep>)
 }
@@ -78,9 +66,6 @@ interface QuizDao {
     @Query("SELECT * FROM quiz_questions WHERE lessonId = :lessonId")
     fun getQuizForLesson(lessonId: String): Flow<List<QuizQuestion>>
 
-    @Query("SELECT * FROM quiz_questions WHERE lessonId = :lessonId")
-    suspend fun getQuizForLessonList(lessonId: String): List<QuizQuestion>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuizQuestions(questions: List<QuizQuestion>)
 }
@@ -89,9 +74,6 @@ interface QuizDao {
 interface ProgressDao {
     @Query("SELECT * FROM user_progress")
     fun getAllProgress(): Flow<List<UserProgress>>
-
-    @Query("SELECT * FROM user_progress")
-    suspend fun getAllProgressSynchronous(): List<UserProgress>
 
     @Query("SELECT * FROM user_progress WHERE lessonId = :lessonId LIMIT 1")
     fun getProgressForLesson(lessonId: String): Flow<UserProgress?>
@@ -143,41 +125,32 @@ interface ChatDao {
 }
 
 @Dao
-interface BuddyDao {
-    @Query("SELECT * FROM buddies ORDER BY xp DESC")
-    fun getAllBuddies(): Flow<List<Buddy>>
+interface PersonDao {
+    @Query("SELECT * FROM people ORDER BY isMentorAvailable DESC, xp DESC, name ASC")
+    fun getAllPeople(): Flow<List<PersonEntity>>
+
+    @Query("SELECT * FROM people WHERE role = :role ORDER BY xp DESC")
+    fun getPeopleByRole(role: String): Flow<List<PersonEntity>>
+
+    @Query("SELECT * FROM people WHERE isMentorAvailable = 1 ORDER BY xp DESC")
+    fun getMentors(): Flow<List<PersonEntity>>
+
+    @Query("SELECT * FROM people WHERE id = :id LIMIT 1")
+    suspend fun getPersonById(id: String): PersonEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBuddies(buddies: List<Buddy>)
-
-    @Query("UPDATE buddies SET isConnected = :connected WHERE id = :buddyId")
-    suspend fun updateConnectionStatus(buddyId: String, connected: Boolean)
-
-    @Query("SELECT * FROM buddy_messages WHERE buddyId = :buddyId ORDER BY timestamp ASC")
-    fun getMessagesForBuddy(buddyId: String): Flow<List<BuddyMessage>>
+    suspend fun insertOrUpdatePeople(people: List<PersonEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBuddyMessage(message: BuddyMessage)
+    suspend fun insertOrUpdatePerson(person: PersonEntity)
 
-    @Query("DELETE FROM buddy_messages WHERE buddyId = :buddyId")
-    suspend fun clearBuddyMessages(buddyId: String)
-}
+    @Query("UPDATE people SET isFavorite = NOT isFavorite WHERE id = :id")
+    suspend fun toggleFavorite(id: String)
 
-@Dao
-interface BuildDao {
-    @Query("SELECT * FROM problem_builds ORDER BY dateCreated DESC")
-    fun getAllBuilds(): Flow<List<ProblemBuild>>
+    @Query("DELETE FROM people WHERE id = :id")
+    suspend fun deletePerson(id: String)
 
-    @Query("SELECT * FROM problem_builds WHERE id = :id LIMIT 1")
-    suspend fun getBuildById(id: String): ProblemBuild?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBuild(build: ProblemBuild)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBuilds(builds: List<ProblemBuild>)
-
-    @Query("UPDATE problem_builds SET buildProgressPercent = :progress WHERE id = :id")
-    suspend fun updateBuildProgress(id: String, progress: Int)
+    @Query("DELETE FROM people")
+    suspend fun clearAllPeople()
 }
 

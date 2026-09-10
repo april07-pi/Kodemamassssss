@@ -29,11 +29,8 @@ data class UserProfile(
     val xp: Int = 0,
     val dataSavingMode: Boolean = false,
     val isPremium: Boolean = false,
-    val isPlus: Boolean = false,
     val hasDownloadedOffline: Boolean = false,
-    val avatarRes: String = "mama_avatar",
-    val lastStreakTimestamp: Long = 0L,
-    val streakNotificationEnabled: Boolean = true
+    val avatarRes: String = "mama_avatar"
 )
 
 @Entity(tableName = "lessons")
@@ -119,49 +116,26 @@ data class MentorChat(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "buddies")
-data class Buddy(
+@Entity(tableName = "people")
+data class PersonEntity(
     @PrimaryKey val id: String,
     val name: String,
-    val role: String, // "Mama", "Student", "Mentor"
-    val languageCode: String,
-    val xp: Int,
-    val avatarRes: String,
-    val interests: String, // Comma-separated interests: e.g. "Spaza,Agriculture"
-    val currentLesson: String,
-    val isConnected: Boolean = false
-)
-
-@Entity(tableName = "buddy_messages")
-data class BuddyMessage(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val buddyId: String,
-    val senderId: String, // "me" or buddyId
-    val messageText: String,
-    val timestamp: Long = System.currentTimeMillis(),
-    val sharedResourceTitle: String = "", // e.g. "Spaza HTML Template"
-    val sharedResourceCode: String = "" // e.g. "<html>...</html>"
-)
-
-@Entity(tableName = "problem_builds")
-data class ProblemBuild(
-    @PrimaryKey val id: String,
-    val category: String, // "school", "community", "idea", "environment", "business", "ai", "fun"
-    val categoryIcon: String = "🏫",
-    val title: String,
-    val problemStatement: String,
-    val targetUsers: String,
-    val currentSolution: String,
-    val currentSolutionFlaw: String,
-    val proposedTechSolution: String,
-    val requiredSkills: String, // Comma-separated: "HTML,CSS,JavaScript,Forms,Basic Data,UI Design"
-    val discoverCompleted: Boolean = true,
-    val defineCompleted: Boolean = true,
-    val designCompleted: Boolean = false,
-    val buildProgressPercent: Int = 40,
-    val testCompleted: Boolean = false,
-    val improveCompleted: Boolean = false,
-    val showcaseCompleted: Boolean = false,
-    val dateCreated: Long = System.currentTimeMillis()
+    val email: String = "",
+    val role: String, // "Mama in Tech", "Learner", "Tech Mentor", "Township Student", "Alumni"
+    val townshipOrCity: String,
+    val province: String,
+    val primaryLanguage: String,
+    val bio: String,
+    val skills: String, // comma separated (e.g. "HTML5, CSS, Python, Git")
+    val githubOrPortfolio: String = "",
+    val linkedinUrl: String = "",
+    val isMentorAvailable: Boolean = false,
+    val xp: Int = 0,
+    val streak: Int = 0,
+    val badge: String = "Member",
+    val lastActive: Long = System.currentTimeMillis(),
+    val isVerified: Boolean = true,
+    val isFavorite: Boolean = false,
+    val syncedWithFirebase: Boolean = true
 )
 

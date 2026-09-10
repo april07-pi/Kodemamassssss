@@ -13,29 +13,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     val repository = Repository(db)
 
-    // 100-Day Onboarding Journey SharedPreferences & state
-    private val sharedPrefs = application.getSharedPreferences("kodemamas_100day_prefs", android.content.Context.MODE_PRIVATE)
-    
-    private val _completedPhases = MutableStateFlow<Set<String>>(emptySet())
-    val completedPhases: StateFlow<Set<String>> = _completedPhases.asStateFlow()
-    
-    private val _activeOnboardingWin = MutableStateFlow<OnboardingPhase?>(null)
-    val activeOnboardingWin: StateFlow<OnboardingPhase?> = _activeOnboardingWin.asStateFlow()
-
-    init {
-        val saved = sharedPrefs.getStringSet("completed_onboarding_phases", emptySet()) ?: emptySet()
-        _completedPhases.value = saved
-    }
-
-    // Lang State (Sync'd with the DB Profile & SharedPreferences for quick cold starts)
-    private val _currentLanguageCode = MutableStateFlow(
-        application.getSharedPreferences("kodemamas_100day_prefs", android.content.Context.MODE_PRIVATE)
-            .getString("selected_language_code", "en") ?: "en"
-    )
+    // Lang State (Sync'd with the DB Profile)
+    private val _currentLanguageCode = MutableStateFlow("en")
     val currentLanguageCode: StateFlow<String> = _currentLanguageCode.asStateFlow()
 
-    // Screen navigation state: "home", "learn", "community", "mentorship", "profile"
-    private val _selectedTab = MutableStateFlow("home")
+    // Screen navigation state: "home", "builds", "learn", "ai_chat", "community", "mentorship"
+    private val _selectedTab = MutableStateFlow("ai_chat")
     val selectedTab: StateFlow<String> = _selectedTab.asStateFlow()
 
     // Core Database Flows
@@ -57,60 +40,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val mentorChats: StateFlow<List<MentorChat>> = repository.mentorChats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allBuddies: StateFlow<List<Buddy>> = repository.allBuddies
+    // Firebase People Database Connection & Flows
+    val firebaseService = FirebasePeopleDatabaseService(application, db.personDao())
+
+    val allPeople: StateFlow<List<PersonEntity>> = repository.allPeople
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allBuilds: StateFlow<List<ProblemBuild>> = repository.allBuilds
+    val allMentors: StateFlow<List<PersonEntity>> = repository.allMentors
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _activeBuild = MutableStateFlow<ProblemBuild?>(null)
-    val activeBuild: StateFlow<ProblemBuild?> = _activeBuild.asStateFlow()
-
-    fun selectBuild(build: ProblemBuild?) {
-        _activeBuild.value = build
-    }
-
-    fun createProblemBuild(
-        category: String,
-        categoryIcon: String,
-        title: String,
-        problemStatement: String,
-        targetUsers: String,
-        currentSolution: String,
-        currentSolutionFlaw: String,
-        proposedTechSolution: String
-    ) {
-        viewModelScope.launch {
-            val id = "build_" + System.currentTimeMillis()
-            val newBuild = ProblemBuild(
-                id = id,
-                category = category,
-                categoryIcon = categoryIcon,
-                title = title,
-                problemStatement = problemStatement,
-                targetUsers = targetUsers,
-                currentSolution = currentSolution,
-                currentSolutionFlaw = currentSolutionFlaw,
-                proposedTechSolution = proposedTechSolution,
-                requiredSkills = "HTML,CSS,JavaScript,Forms,Basic Data,UI Design",
-                discoverCompleted = true,
-                defineCompleted = true,
-                designCompleted = true,
-                buildProgressPercent = 20,
-                testCompleted = false,
-                improveCompleted = false,
-                showcaseCompleted = false
-            )
-            repository.insertBuild(newBuild)
-            _activeBuild.value = newBuild
-        }
-    }
-
-    fun updateBuildProgress(buildId: String, newPercent: Int) {
-        viewModelScope.launch {
-            repository.updateBuildProgress(buildId, newPercent)
-        }
-    }
+    val firebaseStatus: StateFlow<FirebaseConnectionStatus> = firebaseService.connectionStatus
+    val firebaseLastSync: StateFlow<Long> = firebaseService.lastSyncTimestamp
+    val firebaseSyncedCount: StateFlow<Int> = firebaseService.syncedCount
+    val firebaseStatusMessage: StateFlow<String> = firebaseService.statusMessage
+    val firebaseDbUrl: StateFlow<String> = firebaseService.databaseUrl
+    val firebaseProjectId: StateFlow<String> = firebaseService.projectId
 
     // Lesson Active States
     private val _currentActiveLesson = MutableStateFlow<Lesson?>(null)
@@ -155,9 +99,86 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _quizFinished = MutableStateFlow(false)
     val quizFinished: StateFlow<Boolean> = _quizFinished.asStateFlow()
 
-    // Network Status (Simulated Offline/Online Mode)
-    private val _isOnline = MutableStateFlow(false)
+    // Network Status & Real-time Network Observer
+    private val _isOnline = MutableStateFlow(NetworkHelper.isOnline(application))
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+
+    // Preferences & Custom API Key
+    private val prefs = application.getSharedPreferences("kodemamas_ai_prefs", android.content.Context.MODE_PRIVATE)
+    private val _customApiKey = MutableStateFlow(prefs.getString("custom_gemini_api_key", "") ?: "")
+    val customApiKey: StateFlow<String> = _customApiKey.asStateFlow()
+
+    // Google Search Grounding & Gemini AI Status
+    private val _isGoogleSearchEnabled = MutableStateFlow(prefs.getBoolean("google_search_grounding", true))
+    val isGoogleSearchEnabled: StateFlow<Boolean> = _isGoogleSearchEnabled.asStateFlow()
+
+    private val _selectedGeminiModel = MutableStateFlow(
+        prefs.getString("selected_gemini_model", GeminiService.MODEL_GEMINI_3_5_FLASH) ?: GeminiService.MODEL_GEMINI_3_5_FLASH
+    )
+    val selectedGeminiModel: StateFlow<String> = _selectedGeminiModel.asStateFlow()
+
+    // Theme Mode: "SYSTEM", "DARK", "LIGHT"
+    private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "SYSTEM") ?: "SYSTEM")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    // Active AI Assistant Language (Defaults to "auto", supports all 12 SA official languages)
+    private val _aiLanguageCode = MutableStateFlow(prefs.getString("ai_language_code", "auto") ?: "auto")
+    val aiLanguageCode: StateFlow<String> = _aiLanguageCode.asStateFlow()
+
+    fun setAiLanguageCode(code: String) {
+        val clean = if (code.isBlank()) "auto" else code.lowercase().trim()
+        prefs.edit().putString("ai_language_code", clean).apply()
+        _aiLanguageCode.value = clean
+        GeminiService.setActiveLanguageCode(clean)
+    }
+
+    // Subscription & Plan details: "FREE", "STANDARD" (R99/yr), "PREMIUM" (R299/yr)
+    private val _currentPlanTier = MutableStateFlow(
+        prefs.getString("user_plan_tier", "FREE") ?: "FREE"
+    )
+    val currentPlanTier: StateFlow<String> = _currentPlanTier.asStateFlow()
+
+    private val _paymentReference = MutableStateFlow(
+        prefs.getString("payment_reference", "") ?: ""
+    )
+    val paymentReference: StateFlow<String> = _paymentReference.asStateFlow()
+
+    val capitecAccountNumber = "2121743886"
+    val capitecBankName = "Capitec Bank"
+    val capitecBranchCode = "470010"
+    val standardPlanPrice = "R99/year"
+    val premiumPlanPrice = "R299/year"
+
+    fun activatePlan(tier: String, reference: String = "") {
+        val cleanTier = when (tier.uppercase()) {
+            "STANDARD" -> "STANDARD"
+            "PREMIUM" -> "PREMIUM"
+            else -> "FREE"
+        }
+        prefs.edit()
+            .putString("user_plan_tier", cleanTier)
+            .putString("payment_reference", reference.trim())
+            .putLong("plan_activation_time", System.currentTimeMillis())
+            .apply()
+        _currentPlanTier.value = cleanTier
+        _paymentReference.value = reference.trim()
+
+        viewModelScope.launch {
+            val isPrem = (cleanTier == "PREMIUM")
+            repository.updatePremiumStatus(isPrem)
+        }
+    }
+
+    fun downgradeToFree() {
+        activatePlan("FREE", "")
+    }
+
+    // User Rating & In-App Feedback
+    private val _userRating = MutableStateFlow(prefs.getInt("user_rating", 0))
+    val userRating: StateFlow<Int> = _userRating.asStateFlow()
+
+    private val _feedbackSubmitted = MutableStateFlow(false)
+    val feedbackSubmitted: StateFlow<Boolean> = _feedbackSubmitted.asStateFlow()
 
     // Chat states
     private val _aiGenerating = MutableStateFlow(false)
@@ -166,107 +187,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _mentorTyping = MutableStateFlow(false)
     val mentorTyping: StateFlow<Boolean> = _mentorTyping.asStateFlow()
 
-    // Simulated compilation & download progress flows
-    private val _isCompiling = MutableStateFlow(false)
-    val isCompiling: StateFlow<Boolean> = _isCompiling.asStateFlow()
-
-    private val _downloadProgress = MutableStateFlow<Float?>(null)
-    val downloadProgress: StateFlow<Float?> = _downloadProgress.asStateFlow()
-
     // Selected challenge in Daily Challenge View
     private val _activeChallenge = MutableStateFlow<CodingChallenge?>(null)
     val activeChallenge: StateFlow<CodingChallenge?> = _activeChallenge.asStateFlow()
 
-    // Buddy System State Flows
-    private val _selectedBuddy = MutableStateFlow<Buddy?>(null)
-    val selectedBuddy: StateFlow<Buddy?> = _selectedBuddy.asStateFlow()
-
-    private val _activeBuddyMessages = MutableStateFlow<List<BuddyMessage>>(emptyList())
-    val activeBuddyMessages: StateFlow<List<BuddyMessage>> = _activeBuddyMessages.asStateFlow()
-
-    private var messagesJob: kotlinx.coroutines.Job? = null
-
-    fun selectBuddyForChat(buddy: Buddy?) {
-        _selectedBuddy.value = buddy
-        messagesJob?.cancel()
-        if (buddy != null) {
-            messagesJob = viewModelScope.launch {
-                repository.getMessagesForBuddy(buddy.id).collect {
-                    _activeBuddyMessages.value = it
-                }
-            }
-        } else {
-            _activeBuddyMessages.value = emptyList()
-        }
-    }
-
-    fun connectWithBuddy(buddyId: String, connected: Boolean) {
-        viewModelScope.launch {
-            repository.updateBuddyConnection(buddyId, connected)
-            if (_selectedBuddy.value?.id == buddyId) {
-                _selectedBuddy.value = _selectedBuddy.value?.copy(isConnected = connected)
-            }
-        }
-    }
-
-    private var isSendingBuddyMessage = false
-
-    fun sendBuddyMessage(buddyId: String, text: String, sharedResourceTitle: String = "", sharedResourceCode: String = "") {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty() && sharedResourceTitle.isEmpty()) return
-        if (isSendingBuddyMessage) return
-        isSendingBuddyMessage = true
-        viewModelScope.launch {
-            try {
-                val msg = BuddyMessage(
-                    buddyId = buddyId,
-                    senderId = "me",
-                    messageText = trimmed,
-                    sharedResourceTitle = sharedResourceTitle,
-                    sharedResourceCode = sharedResourceCode
-                )
-                repository.insertBuddyMessage(msg)
-                
-                // Highlight interactive responses in native/South African flavors to make them super immersive
-                delay(1500)
-                val replyText = when {
-                    sharedResourceTitle.isNotEmpty() -> "Wow, thank you so much for sharing '${sharedResourceTitle}'! This will help me immensely in my storefront too. Siyabonga kakhulu!"
-                    trimmed.lowercase().contains("molo") || trimmed.lowercase().contains("hello") || trimmed.lowercase().contains("yebo") || trimmed.lowercase().contains("dumelang") -> 
-                        "Dumela! Thank you for connecting with me. How are your lessons going? Let's check our code and build something great! 🇿🇦"
-                    trimmed.lowercase().contains("help") || trimmed.lowercase().contains("stuck") || trimmed.lowercase().contains("code") || trimmed.lowercase().contains("compiler") ->
-                        "Don't worry sister! Double check your tags. Make sure your closing tags have the slash like </h1> or </ul>. I am always online to help review! 👩‍💻"
-                    else -> "This is awesome! Let's make sure we keep up our daily streak and finish our next coding challenges together. Step by step!"
-                }
-                val replyMsg = BuddyMessage(
-                    buddyId = buddyId,
-                    senderId = buddyId,
-                    messageText = replyText
-                )
-                repository.insertBuddyMessage(replyMsg)
-            } finally {
-                isSendingBuddyMessage = false
-            }
-        }
-    }
-
     init {
+        GeminiService.setCustomApiKey(_customApiKey.value)
+        GeminiService.setActiveModel(_selectedGeminiModel.value)
+        GeminiService.setGoogleSearchGrounding(_isGoogleSearchEnabled.value)
+        GeminiService.setActiveLanguageCode(_aiLanguageCode.value)
+
+        viewModelScope.launch {
+            NetworkHelper.observeNetwork(application).collect { online ->
+                _isOnline.value = online
+            }
+        }
+
         viewModelScope.launch {
             // Populate database if empty
             repository.prepopulateDatabaseIfEmpty()
-            // Pull the preferred language code from database and sync with preferences
-            val savedPrefsLang = sharedPrefs.getString("selected_language_code", "en") ?: "en"
+
+            // Ensure the AI Helper has the requested system request discussion from the screenshot
+            launch {
+                aiChats.collect { chats ->
+                    if (chats.none { it.messageText.contains("Key professionals") }) {
+                        repository.insertChatMessage(
+                            MentorChat(
+                                isAi = true,
+                                isUser = false,
+                                messageText = """Key professionals who use it include:
+1. **Business & Systems Analysts:**
+They examine it to see if the idea is realistic (feasibility analysis) and start planning requirements.
+2. **IT Steering Committee & Project Managers:** Decision-makers who review it to say, *"Yes, let's fund and build this!"* or *"Not right now."*
+3. **Developers & Designers:** They reference it to understand the big-picture purpose before building.
+
+Think like a tech leader: If you were creating a system request to solve a challenge in your own community, what problem would you address at your local spaza shop, clinic, or school?"""
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Pull the preferred language code from database
             userProfile.collect { profile ->
                 profile?.let {
-                    val dbLang = it.languageCode
-                    if (dbLang != savedPrefsLang && savedPrefsLang != "en" && dbLang == "en") {
-                        // DB has default "en" but preferences has a custom language: update DB to match preference
-                        repository.updateUserLanguage(savedPrefsLang)
-                        _currentLanguageCode.value = savedPrefsLang
-                    } else {
-                        // DB has custom language (or both are en): sync preference to match DB
-                        sharedPrefs.edit().putString("selected_language_code", dbLang).apply()
-                        _currentLanguageCode.value = dbLang
-                    }
+                    _currentLanguageCode.value = it.languageCode
                 }
             }
         }
@@ -278,62 +243,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleNetworkMode() {
         _isOnline.value = !_isOnline.value
-        val message = if (_isOnline.value) {
-            "Switching to ONLINE MODE (Standard data/Wi-Fi charges may apply)."
-        } else {
-            "KodeMamas is operating in zero-data local-only offline mode."
-        }
-        android.widget.Toast.makeText(
-            getApplication(),
-            message,
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
     }
 
     fun changeLanguage(langCode: String) {
         viewModelScope.launch {
-            sharedPrefs.edit().putString("selected_language_code", langCode).apply()
             repository.updateUserLanguage(langCode)
-            _currentLanguageCode.value = langCode
-        }
-    }
-
-    fun updateOfflineUserProfile(name: String, role: String, langCode: String, newXp: Int) {
-        val trimmedName = name.trim()
-        if (trimmedName.isEmpty()) {
-            android.widget.Toast.makeText(getApplication(), "Name cannot be empty!", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (trimmedName.length > 30) {
-            android.widget.Toast.makeText(getApplication(), "Name is too long (max 30 characters)!", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (!trimmedName.all { it.isLetterOrDigit() || it.isWhitespace() || it == '-' || it == '\'' }) {
-            android.widget.Toast.makeText(getApplication(), "Name contains invalid characters!", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        viewModelScope.launch {
-            sharedPrefs.edit().putString("selected_language_code", langCode).apply()
-            val existing = userProfile.value
-            val updated = existing?.copy(
-                name = trimmedName,
-                role = role,
-                languageCode = langCode,
-                xp = newXp
-            ) ?: UserProfile(
-                id = 1,
-                name = trimmedName,
-                email = "${trimmedName.lowercase().replace(" ", "")}@kodemamas.org",
-                role = role,
-                languageCode = langCode,
-                xp = newXp,
-                streak = 1,
-                dataSavingMode = false,
-                isPremium = false,
-                isPlus = false,
-                hasDownloadedOffline = false
-            )
-            repository.updateProfile(updated)
             _currentLanguageCode.value = langCode
         }
     }
@@ -354,14 +268,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _quizFinished.value = false
             _quizScore.value = 0
             
-            // Fetch steps for active lesson
-            val steps = repository.getStepsForLessonList(lesson.id).ifEmpty {
-                repository.getStepsForLesson(lesson.id).firstOrNull() ?: emptyList()
-            }
-            _currentActiveSteps.value = steps
-            // Initialize default editor code snippet for step index 0
-            if (steps.isNotEmpty()) {
-                _editorText.value = steps[0].codeSnippet
+            // Collect steps for active lesson
+            repository.getStepsForLesson(lesson.id).collect { steps ->
+                _currentActiveSteps.value = steps
+                // Initialize default editor code snippet for step index 0
+                if (steps.isNotEmpty()) {
+                    _editorText.value = steps[0].codeSnippet
+                }
             }
         }
     }
@@ -370,12 +283,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentActiveLesson.value = null
         _currentActiveSteps.value = emptyList()
         _currentStepIndex.value = 0
-    }
-
-    fun unlockAllCourses() {
-        viewModelScope.launch {
-            repository.unlockAllLessons()
-        }
     }
 
     fun setStepIndex(index: Int) {
@@ -393,25 +300,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun downloadAllLessons() {
-        if (_downloadProgress.value != null) return
         viewModelScope.launch {
-            _downloadProgress.value = 0f
-            for (i in 1..20) {
-                delay(80)
-                _downloadProgress.value = i / 20f
-            }
             val lessons = allLessons.value
             for (l in lessons) {
                 repository.updateLessonDownloaded(l.id, true)
             }
             repository.updateDownloadedOfflineStatus(true)
             // Add downloading XP reward
-            val currentProfile = userProfile.value
-            if (currentProfile != null) {
-                repository.updateProfile(currentProfile.copy(xp = currentProfile.xp + 40, hasDownloadedOffline = true))
-            }
-            completeOnboardingPhase("admit")
-            _downloadProgress.value = null
+            repository.updateProfile(userProfile.value!!.copy(xp = userProfile.value!!.xp + 40, hasDownloadedOffline = true))
         }
     }
 
@@ -434,166 +330,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        if (_isCompiling.value) return // Prevent multiple compile runs
-        _isCompiling.value = true
-
-        viewModelScope.launch {
-            delay(900) // Fast realistic compiler run simulation
-
-            val lowerCode = currentCode.lowercase()
-            when (currentLesson.id) {
-                "html_1" -> {
-                    if (lowerCode.contains("<h1>") && lowerCode.contains("</h1>") && (lowerCode.contains("spaza") || lowerCode.contains("mam"))) {
-                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\nHeading size h1: \"Mam's Spaza Shop\" with warm gold colors."
-                        _simulatorSuccess.value = true
-                    } else if (lowerCode.contains("<ul>") && lowerCode.contains("</ul>")) {
-                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound elements: Bread, Milk, Rooibos Tea."
-                        _simulatorSuccess.value = true
-                    } else if (lowerCode.contains("<h1>") || lowerCode.contains("<p>")) {
-                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Rendered HTML element successfully!\n$currentCode"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "Web Preview Output:\n--------------------\n$currentCode\n--------------------\nTip: Make sure to wrap headings in <h1>...</h1> or create lists with <ul> and <li>!"
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "css_2" -> {
-                    if (lowerCode.contains("background-color") || lowerCode.contains("color")) {
-                        _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "CSS compiler output:\nModified style sheet rules. Use background-color and color to configure colors!"
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "js_3" -> {
-                    if (lowerCode.contains("calculatetotal") || lowerCode.contains("18.50") || lowerCode.contains("breadprice") || lowerCode.contains("milkprice")) {
-                        _simulatorOutput.value = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.5 + 3*16 = 37 + 48 = 85)."
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined. Write the calculateTotal function or calculation formula!"
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "python_4" -> {
-                    if (lowerCode.contains("temp") && (lowerCode.contains(">") || lowerCode.contains("print"))) {
-                        _simulatorOutput.value = "🐍 Python Terminal Output:\nWarning: High Heat! Increase irrigation x2.\n\n✅ Algorithm completed successfully!"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "🐍 Python IDLE Console:\nError: IndentationError or missing conditional comparison (temp > 30)."
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "html_5" -> {
-                    // StoryBrand Landing Page Layout
-                    if (step.stepNumber == 1 || lowerCode.contains("<h1>") || lowerCode.contains("grow your business") || lowerCode.contains("kodemamas")) {
-                        if (lowerCode.contains("<h1>") && lowerCode.contains("</h1>")) {
-                            _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ High-Converting StoryBrand Header rendered!\nHeading size h1: \"Grow Your Business with KodeMamas\"\n\n✅ Customer is positioned as the Hero!"
-                            _simulatorSuccess.value = true
-                        } else if (lowerCode.contains("<h") || lowerCode.contains("kodemamas") || lowerCode.contains("grow")) {
-                            _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Header text detected!\n$currentCode\n\nTip: Wrap your title in <h1>...</h1> for maximum visual hierarchy."
-                            _simulatorSuccess.value = true
-                        } else {
-                            _simulatorOutput.value = "Web Preview Output:\n--------------------\n$currentCode\n--------------------\nTip: Write <h1>Grow Your Business with KodeMamas</h1> to build the hero banner!"
-                            _simulatorSuccess.value = false
-                        }
-                    } else if (step.stepNumber == 2 || lowerCode.contains("<button") || lowerCode.contains("join") || lowerCode.contains("training")) {
-                        if (lowerCode.contains("<button") && (lowerCode.contains("</button>") || lowerCode.contains(">"))) {
-                            _simulatorOutput.value = "🚀 Web Emulator Preview:\n🔘 Call to Action Button Rendered: [Join Training Now]!\n\n✅ High-converting CTA button ready for customer signups!"
-                            _simulatorSuccess.value = true
-                        } else if (lowerCode.contains("button") || lowerCode.contains("join")) {
-                            _simulatorOutput.value = "🚀 Web Emulator Preview:\n🔘 Button element created!\n$currentCode"
-                            _simulatorSuccess.value = true
-                        } else {
-                            _simulatorOutput.value = "Web Preview Output:\n--------------------\n$currentCode\n--------------------\nTip: Use <button>Join Training Now</button> to add your Call to Action button!"
-                            _simulatorSuccess.value = false
-                        }
-                    } else {
-                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Rendered StoryBrand component!\n$currentCode"
-                        _simulatorSuccess.value = true
-                    }
-                }
-                "css_6" -> {
-                    if (lowerCode.contains(".mama") || lowerCode.contains(".student") || lowerCode.contains("gold") || lowerCode.contains("indigo")) {
-                        _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ .mama class styled Gold (#FFD700)!\n✅ .student class styled Indigo (#4B0082)!"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "CSS compiler output:\nDefine classes .mama and .student with color rules."
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "js_7" -> {
-                    if (lowerCode.contains("revenue") || lowerCode.contains("expenses") || lowerCode.contains("profit") || lowerCode.contains("15000")) {
-                        _simulatorOutput.value = "⚙️ JavaScript Output:\nR5500\n\n✅ Net profit calculated accurately (Revenue R15,000 - Expenses R9,500 = R5,500)!"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "⚙️ JavaScript Console:\nWrite variables for revenue, expenses, and calculate net profit."
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "html_8" -> {
-                    if (lowerCode.contains("<input") || lowerCode.contains("email") || lowerCode.contains("placeholder")) {
-                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n📋 Customer Email Input Field Rendered: [Enter your email]\n\n✅ Ready to capture township leads!"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "Web Preview Output:\nTip: Use <input type=\"email\" placeholder=\"Enter your email\" /> to create the input field!"
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "python_9" -> {
-                    if (lowerCode.contains("sales") || lowerCode.contains("for") || lowerCode.contains("1.15")) {
-                        _simulatorOutput.value = "🐍 Python Terminal Output:\nMonth 1: R5750.00\nMonth 2: R6612.50\nMonth 3: R7604.38\n\n✅ 90-Day Compounding forecast generated!"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "🐍 Python IDLE Console:\nWrite a 'for' loop iterating over months 1, 2, 3 multiplying sales by 1.15."
-                        _simulatorSuccess.value = false
-                    }
-                }
-                "js_10" -> {
-                    if (lowerCode.contains("steps") || lowerCode.contains("foreach") || lowerCode.contains("for") || lowerCode.contains("sop")) {
-                        _simulatorOutput.value = "⚙️ JavaScript Output:\n1. Lead\n2. Team\n3. Plan\n4. Experience\n5. Marketing\n6. Scale\n\n✅ SOP automation checklist printed!"
-                        _simulatorSuccess.value = true
-                    } else {
-                        _simulatorOutput.value = "⚙️ JavaScript Console:\nDefine steps array and iterate over SOP items."
-                        _simulatorSuccess.value = false
-                    }
-                }
-                else -> {
-                    // Fallback for general categories
-                    when (currentLesson.category) {
-                        "HTML" -> {
-                            if (lowerCode.contains("<") && lowerCode.contains(">")) {
-                                _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Rendered HTML element successfully!\n$currentCode"
-                                _simulatorSuccess.value = true
-                            } else {
-                                _simulatorOutput.value = "Web Preview Output:\n$currentCode"
-                                _simulatorSuccess.value = true
-                            }
-                        }
-                        "CSS" -> {
-                            _simulatorOutput.value = "🎨 CSS styling applied successfully!\n$currentCode"
-                            _simulatorSuccess.value = true
-                        }
-                        "JavaScript" -> {
-                            _simulatorOutput.value = "⚙️ JavaScript Console:\nScript executed without errors.\nOutput:\n$currentCode"
-                            _simulatorSuccess.value = true
-                        }
-                        "Python" -> {
-                            _simulatorOutput.value = "🐍 Python Terminal Output:\nProgram finished with exit code 0.\n$currentCode"
-                            _simulatorSuccess.value = true
-                        }
-                        else -> {
-                            _simulatorOutput.value = "Output:\n$currentCode"
-                            _simulatorSuccess.value = true
-                        }
-                    }
+        when (currentLesson.category) {
+            "HTML" -> {
+                if (currentCode.contains("<h1>") && currentCode.contains("</h1>") && currentCode.lowercase().contains("spaza")) {
+                    _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\nHeading size h1: \"Mam's Spaza Shop\" with warm gold colors."
+                    _simulatorSuccess.value = true
+                } else if (currentCode.contains("<ul>") && currentCode.contains("</ul>")) {
+                    _simulatorOutput.value = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound elements: Bread, Milk, Rooibos Tea."
+                    _simulatorSuccess.value = true
+                } else {
+                    _simulatorOutput.value = "Web Preview Output:\n--------------------\n" + currentCode + "\n--------------------\nTip: Make sure to wrap headings in <h1>...</h1> or make lists using <ul> and <li>!"
+                    _simulatorSuccess.value = false
                 }
             }
-
-            if (_simulatorSuccess.value) {
-                completeOnboardingPhase("activate")
+            "CSS" -> {
+                if (currentCode.contains("background-color") && currentCode.contains("color")) {
+                    _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
+                    _simulatorSuccess.value = true
+                } else {
+                    _simulatorOutput.value = "CSS compiler output:\nModified style sheets rules. Use background-color and color to configure colors!"
+                    _simulatorSuccess.value = false
+                }
             }
-            _isCompiling.value = false
+            "JavaScript" -> {
+                if (currentCode.contains("calculateTotal") && currentCode.contains("18.50")) {
+                    _simulatorOutput.value = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.5 + 3*16 = 37 + 48 = 85)."
+                    _simulatorSuccess.value = true
+                } else {
+                    _simulatorOutput.value = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined or code incomplete. Write the calculateTotal function!"
+                    _simulatorSuccess.value = false
+                }
+            }
+            "Python" -> {
+                if (currentCode.contains("temp > 30") && currentCode.contains("print")) {
+                    _simulatorOutput.value = "🐍 Python Terminal Output:\nWarning: High Heat! Increase irrigation x2.\n\n✅ Algorithm completed successfully!"
+                    _simulatorSuccess.value = true
+                } else {
+                    _simulatorOutput.value = "🐍 Python IDLE Console:\nError: IndentationError or missing conditional comparison condition temperature > 30."
+                    _simulatorSuccess.value = false
+                }
+            }
         }
     }
 
@@ -603,12 +379,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val steps = _currentActiveSteps.value
             val currentIdx = _currentStepIndex.value
             
-            if (currentIdx >= steps.size - 1 || steps.isEmpty()) {
+            if (currentIdx == steps.size - 1) {
                 // Lesson steps finished -> Load interactive quiz questions
-                val questions = repository.getQuizForLessonList(currentLesson.id).ifEmpty {
-                    repository.getQuizForLesson(currentLesson.id).firstOrNull() ?: emptyList()
-                }
-                if (questions.isNotEmpty()) {
+                repository.getQuizForLesson(currentLesson.id).collect { questions ->
                     _activeQuizQuestions.value = questions
                     _quizQuestionIndex.value = 0
                     _selectedAnswerIndex.value = -1
@@ -619,16 +392,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     
                     // Trigger navigation to quiz state
                     _currentActiveSteps.value = emptyList() // clear steps to open quiz
-                } else {
-                    _quizFinished.value = true
-                    repository.saveUserProgress(
-                        lessonId = currentLesson.id,
-                        stepIndex = 1,
-                        completed = true,
-                        quizCompleted = true,
-                        score = 100
-                    )
-                    completeOnboardingPhase("accomplish")
                 }
             } else {
                 setStepIndex(currentIdx + 1)
@@ -678,9 +441,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     quizCompleted = true,
                     score = _quizScore.value
                 )
-                if (passed) {
-                    completeOnboardingPhase("accomplish")
-                }
             }
         } else {
             _quizQuestionIndex.value = currentQIdx + 1
@@ -692,25 +452,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Community section - Add post
     fun addForumPost(content: String) {
-        val trimmed = content.trim()
-        if (trimmed.isEmpty()) return
-        if (trimmed.length > 500) {
-            android.widget.Toast.makeText(getApplication(), "Post is too long (max 500 characters)!", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        val lowerContent = trimmed.lowercase()
-        val blockedWords = listOf("bypass", "unauthorized", "hack", "vulgar", "profanity") // custom placeholder blocked words
-        if (blockedWords.any { lowerContent.contains(it) }) {
-            android.widget.Toast.makeText(getApplication(), "Your post contains blocked or unsafe words. Let's keep the community safe and encouraging!", android.widget.Toast.LENGTH_LONG).show()
-            return
-        }
+        if (content.trim().isEmpty()) return
         viewModelScope.launch {
             val profile = userProfile.value ?: return@launch
             val newPost = DiscussionPost(
                 id = "post_${System.currentTimeMillis()}",
                 author = profile.name + " (" + (if (profile.role == "Mama") "Mama" else "Student") + ")",
                 role = profile.role,
-                content = trimmed,
+                content = content,
                 timestamp = System.currentTimeMillis(),
                 likes = 0,
                 commentCount = 0,
@@ -726,85 +475,68 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // AI chat - send message
+    fun setCustomApiKey(key: String) {
+        val trimmed = key.trim()
+        prefs.edit().putString("custom_gemini_api_key", trimmed).apply()
+        _customApiKey.value = trimmed
+        GeminiService.setCustomApiKey(trimmed)
+    }
+
+    fun toggleGoogleSearch(enabled: Boolean? = null) {
+        val next = enabled ?: !_isGoogleSearchEnabled.value
+        _isGoogleSearchEnabled.value = next
+        prefs.edit().putBoolean("google_search_grounding", next).apply()
+        GeminiService.setGoogleSearchGrounding(next)
+    }
+
+    fun setSelectedGeminiModel(model: String) {
+        _selectedGeminiModel.value = model
+        prefs.edit().putString("selected_gemini_model", model).apply()
+        GeminiService.setActiveModel(model)
+    }
+
+    fun searchGoogleDatabase(query: String) {
+        if (query.isBlank()) return
+        sendAiChat("Search Google database and explain: $query")
+    }
+
+    // AI chat - send message (Online Gemini AI + Google Search Database Grounding + Unrestricted local engine)
     fun sendAiChat(messageText: String) {
-        val trimmed = messageText.trim()
-        if (trimmed.isEmpty() || _aiGenerating.value) return
+        if (messageText.trim().isEmpty()) return
         viewModelScope.launch {
-            val userMsg = MentorChat(isAi = true, isUser = true, messageText = trimmed)
+            val userMsg = MentorChat(isAi = true, isUser = true, messageText = messageText)
             repository.insertChatMessage(userMsg)
 
             _aiGenerating.value = true
 
-            val langCode = userProfile.value?.languageCode ?: "en"
-            val userRole = userProfile.value?.role ?: "Mama"
-            val systemPrompt = "You are an empathetic, patient, and highly encouraging Socratic AI Builder Coach for KodeMamas. You are assisting a $userRole in South Africa. Your mission is to transform learners into independent Builders who turn real problems into working technology. NEVER just give out raw code immediately when requested; instead ask guiding questions like 'Before I give you code, tell me what this button/function should do in plain words.' Guide them through: Discover -> Define -> Design -> Learn -> Build -> Test -> Improve -> Showcase. Keep explanations friendly, simple, and under 150 words in all 11 official South African languages plus SASL."
+            val currentLang = _aiLanguageCode.value
+            val langDirective = if (currentLang != "auto") {
+                "ACTIVE SOUTH AFRICAN LANGUAGE: The user has selected language code '$currentLang'. You MUST deliver your complete answer in that language, removing the English barrier entirely."
+            } else {
+                "MULTILINGUAL INSTRUCTION: You support all 12 South African official languages (isiZulu, isiXhosa, Afrikaans, Sepedi, Setswana, Sesotho, Xitsonga, siSwati, Tshivenda, isiNdebele, SASL, English). Detect the language used by the user and respond in that exact language with rich cultural and technical fluency, eliminating the English barrier."
+            }
 
-            // Generate AI response via Gemini or On-Device Socratic Engine
-            delay(400) // Brief natural pacing
+            val systemPrompt = """You are KodeMamas AI Assistant, built specifically to eliminate the English language barrier in computer science and tech education across South African communities.
+You thoroughly explain and answer ANY question asked by the user without arbitrary restrictions.
+
+$langDirective
+
+Scope & Capabilities:
+- Answer questions on ALL subjects: programming, computer science, software engineering, mathematics, science, technology, career coaching, job readiness, CV/resume building, business, general knowledge, languages (especially all 12 South African official languages), and everyday problem-solving.
+- When writing code or technical explanations, provide comprehensive, production-ready, clear examples with explanatory walkthroughs in their chosen mother tongue.
+- Ground your answers in accurate, real-time facts from Google Search database when applicable.
+- Do NOT refuse to answer, do NOT restrict your knowledge to only beginner coding, and do NOT artificially limit your response.
+- Provide in-depth insights for advanced inquiries, and clear clarity for fundamentals. Support South African township, rural, and urban contexts naturally whenever relevant."""
+
             val aiResponse = GeminiService.generateResponse(
-                prompt = trimmed,
+                prompt = messageText,
                 systemInstruction = systemPrompt,
-                userLanguage = langCode
+                enableGoogleSearch = _isGoogleSearchEnabled.value,
+                isOnline = _isOnline.value,
+                languageCode = currentLang
             )
             repository.insertChatMessage(MentorChat(isAi = true, isUser = false, messageText = aiResponse))
             _aiGenerating.value = false
-        }
-    }
-
-    private fun generateOfflineRecommendation(query: String): String {
-        val text = query.lowercase()
-        return when {
-            text.contains("login") || text.contains("register") || text.contains("account") -> {
-                "🔑 **Offline Profile & Login Help / Izikhokelo zokuNgena:**\n\n" +
-                "• **English:** Click the profile edit card in the top right to set up your offline account on this device. Enter your name, select your role (Mama, Student, Mentor), and pick your language out of the 12 South African options!\n" +
-                "• **Zulu:** Chofoza ikhadi lomlando phezulu kwesokudla ukuze usethe i-akhawunti yakho. Faka igama, khetha indima yakho (u-Mama, uMfundi, noma uMentora) futhi ukhethe ulimi!\n" +
-                "• **Xhosa:** Cofa ikhadi leprophayili phezulu ngasekunene ukuseta iakhawunti yakho. Faka igama lakho, khetha indima yakho (uMama, uMfundi, okanye uMcebisi) uze ukhethe ulwimi lwasekhaya!"
-            }
-            text.contains("after login") || text.contains("tab") || text.contains("content") -> {
-                "📱 **What's inside after login / Izinto ezikhoyo emva kokungena:**\n\n" +
-                "Once you log in, you can access the following 5 main tabs:\n" +
-                "1. **Home / Dashboard:** Tracks your 100-Day Journey progress, streak, XP, and shows visual 'win' popups as you complete coding steps!\n" +
-                "2. **Learn:** 10 full interactive lessons in 12 languages covering HTML, CSS, JavaScript, and Python with custom Spaza and smart farming business scenarios!\n" +
-                "3. **Code:** A real-time sandboxed code editor simulator where you can test your HTML headers, CSS styling, and JavaScript calculations.\n" +
-                "4. **Forum:** Interact with other Mamas and girls locally in South Africa, share advice on growing your business, and post your coding milestones!\n" +
-                "5. **Buddies:** Find and match with study buddies near you based on language, role, and current course progress!"
-            }
-            text.contains("grow") || text.contains("business") || text.contains("donald miller") || text.contains("6-step") || text.contains("plan") -> {
-                "📈 **Donald Miller's 6-Step Small Business Plan:**\n\n" +
-                "Our advanced coding lessons (5 to 10) are designed specifically around this powerful framework:\n" +
-                "1. **Lead Yourself (Pilot):** Build habits and SOPs first so you aren't the bottleneck (Lesson 6/10).\n" +
-                "2. **StoryBrand Marketing (Engines):** Clarify your message so customers listen. Create headers and call-to-action buttons (Lesson 5).\n" +
-                "3. **Sales & Offers (Wings):** Focus on cash flow, high-converting checkout lists, and pricing calculators (Lesson 7).\n" +
-                "4. **Customer Experience (Body):** Build automated customer feedback systems (Lesson 8).\n" +
-                "5. **Predictive Analytics (Fuel):** Use Python loops to forecast 90-day compound revenue goals (Lesson 9).\n" +
-                "6. **Operations & Scale (Controls):** Create interactive SOP checklists to automate daily steps (Lesson 10)."
-            }
-            text.contains("html") -> {
-                "🌐 **HTML (Web Layout) tip:**\n\n" +
-                "• Use `<h1>Title</h1>` for the largest headers.\n" +
-                "• Use `<button>Buy Now</button>` for clear Call-to-Actions (StoryBrand Principle!).\n" +
-                "• Use `<input type=\"email\" />` to collect customer leads dynamically."
-            }
-            text.contains("css") -> {
-                "🎨 **CSS (Styling) tip:**\n\n" +
-                "• Use `.mama { color: gold; }` to target specific classes for visual branding.\n" +
-                "• Use `background-color: #121212;` for elegant dark themes."
-            }
-            text.contains("javascript") || text.contains("js") -> {
-                "⚡ **JavaScript (Calculations) tip:**\n\n" +
-                "• Use loops like `steps.forEach()` to print out automated checklists.\n" +
-                "• Use simple mathematical variables `const profit = revenue - expenses;` to track spaza cash flow."
-            }
-            text.contains("python") -> {
-                "🐍 **Python (Data & Loops) tip:**\n\n" +
-                "• Use `for month in range(1, 4):` loops to simulate 90-day compounding revenue trackers.\n" +
-                "• Always align your logic blocks using correct **Indentation** (4 spaces) to prevent syntax errors."
-            }
-            else -> {
-                "👋 **Molo! Dumelang! Sanibonani! Hello!**\n\n" +
-                "I am your offline tech buddy! Type a question about **login** or **after login** features, **grow business** lessons, or specific languages (like **Zulu** or **Xhosa**) and I will help you step-by-step!"
-            }
         }
     }
 
@@ -815,28 +547,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 MentorChat(
                     isAi = true,
                     isUser = false,
-                    messageText = "Hello again! 👋 Let's start a fresh coding study lesson. Ask me any simple questions about HTML, CSS, JavaScript, or Python!"
+                    messageText = """Key professionals who use it include:
+1. **Business & Systems Analysts:**
+They examine it to see if the idea is realistic (feasibility analysis) and start planning requirements.
+2. **IT Steering Committee & Project Managers:** Decision-makers who review it to say, *"Yes, let's fund and build this!"* or *"Not right now."*
+3. **Developers & Designers:** They reference it to understand the big-picture purpose before building.
+
+Think like a tech leader: If you were creating a system request to solve a challenge in your own community, what problem would you address at your local spaza shop, clinic, or school?"""
                 )
             )
         }
     }
 
-    // 1-on-1 mentorship chat with Nokwazi
-    fun sendMentorChat(messageText: String) {
-        val trimmed = messageText.trim()
-        if (trimmed.isEmpty() || _mentorTyping.value) return
+    fun updateProfileName(newName: String) {
+        val current = userProfile.value ?: return
         viewModelScope.launch {
-            val userMsg = MentorChat(isAi = false, isUser = true, messageText = trimmed)
+            repository.updateProfile(current.copy(name = newName))
+        }
+    }
+
+    fun toggleDataSaving(enabled: Boolean) {
+        val current = userProfile.value ?: return
+        viewModelScope.launch {
+            repository.updateProfile(current.copy(dataSavingMode = enabled))
+        }
+    }
+
+    // 1-on-1 mentorship chat with tech mentor
+    fun sendMentorChat(messageText: String) {
+        if (messageText.trim().isEmpty()) return
+        viewModelScope.launch {
+            val userMsg = MentorChat(isAi = false, isUser = true, messageText = messageText)
             repository.insertChatMessage(userMsg)
 
             _mentorTyping.value = true
             delay(2000) // Realistic typing status
 
             val replies = listOf(
-                "Wow, that is a fantastic question! I highly recommend checking out Lesson 1 for the Spaza Shop setup first, it will clear that syntax.",
-                "Excellent progress! Remember to save your lesson downloaded to read when you travel out of signal coverage. Let me know if you want me to review your CV draft!",
-                "Ngiyabonga for your message! You have built a strong logical base. Let's arrange a 1-on-1 Zoom setup call on our premium tier once you finish Lesson 3.",
-                "Molo student! I am currently checking coding logs from Bloemfontein. Your profile looks amazing. Continue building and creating!"
+                "That is a great question! I recommend reviewing Lesson 1 for foundational HTML and CSS structure first, it will clarify that syntax.",
+                "Excellent progress! Remember to save your lessons offline so you can practice even when loadshedding strikes or data is low. Let me know if you'd like your CV draft reviewed!",
+                "Ngiyabonga for your question! You are building solid algorithmic thinking. Keep practicing the daily coding challenges!",
+                "Dumelang & Sanibonani! I am reviewing your code submissions. Solo founder Nokwazi Nobuhle Xaba in Bloemfontein is cheering you on. Keep building and innovating!"
             )
             val randomReply = replies.random()
             val mentorReply = MentorChat(isAi = false, isUser = false, messageText = randomReply)
@@ -858,156 +609,129 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun claimPlusUpgrade() {
-        viewModelScope.launch {
-            repository.updatePlusStatus(true)
-            repository.updatePremiumStatus(false) // Upgrade to Plus
-        }
-    }
-
     fun claimPremiumUpgrade() {
-        viewModelScope.launch {
-            repository.updatePremiumStatus(true)
-            repository.updatePlusStatus(false) // Upgrade to Premium (Premium takes higher priority)
-        }
+        activatePlan("PREMIUM", "PROMO_TRIAL")
     }
 
     fun cancelPremium() {
-        viewModelScope.launch {
-            repository.updatePremiumStatus(false)
-        }
+        activatePlan("FREE", "")
     }
 
-    fun cancelPlus() {
-        viewModelScope.launch {
-            repository.updatePlusStatus(false)
+    fun setThemeMode(mode: String) {
+        val validMode = when (mode.uppercase()) {
+            "DARK", "LIGHT" -> mode.uppercase()
+            else -> "SYSTEM"
         }
+        prefs.edit().putString("theme_mode", validMode).apply()
+        _themeMode.value = validMode
     }
 
-    fun cancelAllSubscriptions() {
-        viewModelScope.launch {
-            repository.updatePremiumStatus(false)
-            repository.updatePlusStatus(false)
-        }
-    }
-
-    // 100-Day Onboarding Journey Methods
-    val onboardingPhases = listOf(
-        OnboardingPhase(
-            id = "assess",
-            name = "1. Assess",
-            feeling = "Did I make the right choice?",
-            taskName = "Lock in Your Motivation Goals",
-            taskDescription = "Confirm your learning path and set coding goals (e.g., build a spaza shop, design responsive layouts) to lock in your study motivation.",
-            xpReward = 20,
-            actionText = "Set Study Goals",
-            phaseNumber = 1
-        ),
-        OnboardingPhase(
-            id = "admit",
-            name = "2. Admit",
-            feeling = "This is harder than I thought.",
-            taskName = "Download Offline Lessons",
-            taskDescription = "Simplify your study. Save all 4 core lessons offline to learn with zero mobile data charges or signal drops.",
-            xpReward = 30,
-            actionText = "Save Lessons Offline",
-            phaseNumber = 2
-        ),
-        OnboardingPhase(
-            id = "affirm",
-            name = "3. Affirm",
-            feeling = "Am I doing this right?",
-            taskName = "Read Community Success Stories",
-            taskDescription = "Witness real-world proof. Read how other South African mothers and sisters are successfully building tech solutions.",
-            xpReward = 20,
-            actionText = "Read Success Stories",
-            phaseNumber = 3
-        ),
-        OnboardingPhase(
-            id = "activate",
-            name = "4. Activate",
-            feeling = "I'm stuck.",
-            taskName = "Run 'Code Your Name' in Simulator",
-            taskDescription = "Get value in 5 minutes! Launch the code editor, customize a script with your name, and see it render live.",
-            xpReward = 50,
-            actionText = "Launch Editor",
-            phaseNumber = 4
-        ),
-        OnboardingPhase(
-            id = "acclimate",
-            name = "5. Acclimate",
-            feeling = "Making this part of my life.",
-            taskName = "Check Study Stats & Streak Log",
-            taskDescription = "Build study habit loops. View your XP progress, streak charts, and digital literacy analytics regularly.",
-            xpReward = 30,
-            actionText = "Analyze Habits",
-            phaseNumber = 5
-        ),
-        OnboardingPhase(
-            id = "accomplish",
-            name = "6. Accomplish",
-            feeling = "I'm winning!",
-            taskName = "Pass a Lesson Quiz",
-            taskDescription = "Celebrate your success! Complete the quiz questions in Lesson 1 to earn your official HTML & digital literacy badge.",
-            xpReward = 40,
-            actionText = "Start Quiz",
-            phaseNumber = 6
-        ),
-        OnboardingPhase(
-            id = "adopt",
-            name = "7. Adopt",
-            feeling = "This is who I am now.",
-            taskName = "Connect with a Study Buddy",
-            taskDescription = "Join the tech sisterhood. Message a nearby learning partner to share coding templates and build together.",
-            xpReward = 35,
-            actionText = "Find Partners",
-            phaseNumber = 7
-        ),
-        OnboardingPhase(
-            id = "advocate",
-            name = "8. Advocate",
-            feeling = "Everyone needs this!",
-            taskName = "Get Your Local Referral Poster",
-            taskDescription = "Become a promoter. Generate your custom referral invite and help other township mothers learn how to code.",
-            xpReward = 50,
-            actionText = "Get Invite Poster",
-            phaseNumber = 8
-        )
-    )
-
-    fun completeOnboardingPhase(phaseId: String) {
-        val currentSet = _completedPhases.value
-        if (phaseId in currentSet) return
-        
-        val phase = onboardingPhases.find { it.id == phaseId } ?: return
-        val updatedSet = currentSet + phaseId
-        _completedPhases.value = updatedSet
-        sharedPrefs.edit().putStringSet("completed_onboarding_phases", updatedSet).apply()
-        
-        // Award XP
-        viewModelScope.launch {
-            val existing = userProfile.value
-            if (existing != null) {
-                repository.updateProfile(existing.copy(xp = existing.xp + phase.xpReward))
+    fun submitRating(rating: Int, comment: String = "") {
+        val bounded = rating.coerceIn(1, 5)
+        prefs.edit().putInt("user_rating", bounded).apply()
+        _userRating.value = bounded
+        if (comment.isNotBlank()) {
+            viewModelScope.launch {
+                repository.addDiscussionPost(
+                    DiscussionPost(
+                        id = "rating_${System.currentTimeMillis()}",
+                        author = userProfile.value?.name ?: "Community Learner",
+                        role = userProfile.value?.role ?: "Student",
+                        content = "⭐ Rated KodeMamas $bounded/5 Stars: \"$comment\"",
+                        timestamp = System.currentTimeMillis(),
+                        likes = 5,
+                        commentCount = 1,
+                        languageCode = currentLanguageCode.value
+                    )
+                )
             }
         }
-        
-        // Set active win to show the celebratory overlay/dialog
-        _activeOnboardingWin.value = phase
     }
-    
-    fun dismissOnboardingWin() {
-        _activeOnboardingWin.value = null
+
+    fun submitFeedback(category: String, message: String) {
+        if (message.isBlank()) return
+        viewModelScope.launch {
+            repository.addDiscussionPost(
+                DiscussionPost(
+                    id = "feedback_${System.currentTimeMillis()}",
+                    author = userProfile.value?.name ?: "Community Learner",
+                    role = userProfile.value?.role ?: "Student",
+                    content = "[$category] $message",
+                    timestamp = System.currentTimeMillis(),
+                    likes = 1,
+                    commentCount = 0,
+                    languageCode = currentLanguageCode.value
+                )
+            )
+            _feedbackSubmitted.value = true
+        }
+    }
+
+    fun dismissFeedbackNotice() {
+        _feedbackSubmitted.value = false
+    }
+
+    // ---------------------- FIREBASE PEOPLE OPERATIONS ----------------------
+    fun syncFirebasePeople() {
+        viewModelScope.launch {
+            firebaseService.syncWithFirebase()
+        }
+    }
+
+    fun addPersonToFirebase(person: PersonEntity) {
+        viewModelScope.launch {
+            firebaseService.pushPersonToFirebase(person)
+        }
+    }
+
+    fun togglePersonFavorite(id: String) {
+        viewModelScope.launch {
+            firebaseService.toggleFavorite(id)
+        }
+    }
+
+    fun updateFirebaseConfig(url: String, projectId: String) {
+        firebaseService.updateFirebaseConfig(url, projectId)
+    }
+
+    fun resetFirebaseConfig() {
+        firebaseService.resetToDefaults()
+    }
+
+    fun publishCurrentUserToFirebase(
+        role: String = "Mama in Tech",
+        township: String = "Bloemfontein Hub",
+        province: String = "Free State",
+        bio: String = "Passionate about learning coding and offline digital skills at KodeMamas.",
+        skills: String = "HTML5, CSS3, Python, Android",
+        isMentor: Boolean = false
+    ) {
+        val current = userProfile.value ?: return
+        val safeEmailId = (if (current.email.isNotBlank()) current.email else "user_${System.currentTimeMillis()}")
+            .replace("@", "_")
+            .replace(".", "_")
+
+        val person = PersonEntity(
+            id = safeEmailId,
+            name = current.name,
+            email = current.email,
+            role = role,
+            townshipOrCity = township,
+            province = province,
+            primaryLanguage = currentLanguageCode.value,
+            bio = bio,
+            skills = skills,
+            isMentorAvailable = isMentor,
+            xp = current.xp,
+            streak = current.streak,
+            badge = if (current.isPremium) "Premium Graduate 👑" else "Township Learner ⭐",
+            lastActive = System.currentTimeMillis(),
+            isVerified = true,
+            isFavorite = false,
+            syncedWithFirebase = true
+        )
+        viewModelScope.launch {
+            firebaseService.pushPersonToFirebase(person)
+        }
     }
 }
-
-data class OnboardingPhase(
-    val id: String,
-    val name: String,
-    val feeling: String,
-    val taskName: String,
-    val taskDescription: String,
-    val xpReward: Int,
-    val actionText: String,
-    val phaseNumber: Int
-)

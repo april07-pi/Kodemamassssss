@@ -15,11 +15,9 @@ import androidx.room.RoomDatabase
         CodingChallenge::class,
         DiscussionPost::class,
         MentorChat::class,
-        Buddy::class,
-        BuddyMessage::class,
-        ProblemBuild::class
+        PersonEntity::class
     ],
-    version = 5,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,8 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun challengeDao(): ChallengeDao
     abstract fun discussionDao(): DiscussionDao
     abstract fun chatDao(): ChatDao
-    abstract fun buddyDao(): BuddyDao
-    abstract fun buildDao(): BuildDao
+    abstract fun personDao(): PersonDao
 
     companion object {
         @Volatile

@@ -1,6 +1,9 @@
 package com.example
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,12 +15,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,24 +42,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.geometry.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.data.*
 import com.example.ui.MainViewModel
+import com.example.ui.PrivacyPolicyDialog
+import com.example.ui.TermsOfServiceDialog
+import com.example.ui.RateAppDialog
+import com.example.ui.UserFeedbackDialog
+import com.example.ui.PlayStoreShowcaseDialog
+import com.example.ui.SettingsHubDialog
+import com.example.ui.SubscriptionPlansDialog
+import com.example.ui.MentorshipCareerHub
+import com.example.ui.FirebasePeopleHub
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
 import com.example.ui.theme.Localization
+import com.example.ui.theme.LocalKodeMamasColors
 import com.example.ui.theme.MyApplicationTheme
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-
-// Theme color duplicates to ensure compile-safety
-val ThemeIndigo = Color(0xFF3B0764) // Deep royal purple primary theme
-val ThemeGold = Color(0xFFFBBF24)   // Vibrant golden yellow accent
-val ThemeGoldLight = Color(0xFFFEF3C7)
-val ThemeSoftBg = Color(0xFF2E0A4E) // Deep royal purple as primary background color
-val ThemeCardBorder = Color(0xFFE9D5FF).copy(alpha = 0.6f)
-val ThemeDarkBg = Color(0xFF1E0638) // Rich night background
+import com.example.ui.theme.ThemeIndigo
+import com.example.ui.theme.ThemeGold
+import com.example.ui.theme.ThemeGoldLight
+import com.example.ui.theme.ThemeSoftBg
+import com.example.ui.theme.ThemeCardBorder
+import com.example.ui.theme.ThemeDarkBg
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -60,7 +74,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
+            val themeMode by viewModel.themeMode.collectAsState()
+            val systemDark = isSystemInDarkTheme()
+            val isDark = when (themeMode) {
+                "DARK" -> true
+                "LIGHT" -> false
+                else -> systemDark
+            }
+            MyApplicationTheme(darkTheme = isDark) {
                 MainAppScreen(viewModel)
             }
         }
@@ -69,104 +90,108 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppScreen(viewModel: MainViewModel) {
+    val colors = LocalKodeMamasColors.current
     val selectedTab by viewModel.selectedTab.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val langCode by viewModel.currentLanguageCode.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
+    val userRating by viewModel.userRating.collectAsState()
 
     val currentLesson by viewModel.currentActiveLesson.collectAsState()
 
     // Dialogs
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showEditProfileDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
-    var showOnboarding by remember { mutableStateOf(true) }
-    var showOfflineAccountDialog by remember { mutableStateOf(false) }
-    var showTourStep by remember { mutableStateOf<Int?>(null) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showTermsDialog by remember { mutableStateOf(false) }
+    var showRateDialog by remember { mutableStateOf(false) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+    var showShowcaseDialog by remember { mutableStateOf(false) }
+    var showSubscriptionDialog by remember { mutableStateOf(false) }
+    var editNameInput by remember { mutableStateOf("") }
 
-    val downloadProgress by viewModel.downloadProgress.collectAsState()
+    LaunchedEffect(userProfile) {
+        userProfile?.let { editNameInput = it.name }
+    }
 
-    if (showOnboarding && currentLesson == null) {
-        OnboardingScreen(
-            onGetStarted = { 
-                showOnboarding = false 
-                // Automatically prompt guided tour for first-time inquisitive/nervous users
-                showTourStep = 0
-            },
-            onExploreCourses = {
-                viewModel.selectTab("learn")
-                showOnboarding = false
-                showTourStep = 0
-            },
-            langCode = langCode,
-            isOnline = isOnline,
-            onToggleNetwork = { viewModel.toggleNetworkMode() },
-            viewModel = viewModel
-        )
-    } else {
-        Scaffold(
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background),
+        containerColor = colors.background,
+        topBar = {
+            if (currentLesson == null) {
+                AppHeader(
+                    userProfile = userProfile,
+                    langCode = langCode,
+                    isOnline = isOnline,
+                    onLangClick = { showLanguageDialog = true },
+                    onToggleNetwork = { viewModel.toggleNetworkMode() },
+                    onEditProfile = { showEditProfileDialog = true },
+                    onOpenSettings = { showSettingsDialog = true }
+                )
+            }
+        },
+        bottomBar = {
+            if (currentLesson == null) {
+                AppBottomNavigation(
+                    selectedTab = selectedTab,
+                    onTabSelected = { viewModel.selectTab(it) },
+                    langCode = langCode
+                )
+            }
+        }
+    ) { innerPadding ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(ThemeSoftBg),
-            topBar = {
-                if (currentLesson == null) {
-                    AppHeader(
-                        userProfile = userProfile,
-                        langCode = langCode,
-                        isOnline = isOnline,
-                        onLangClick = { showLanguageDialog = true },
-                        onToggleNetwork = { viewModel.toggleNetworkMode() },
-                        onEditProfile = { showOfflineAccountDialog = true },
-                        onLanguageSelected = { code -> viewModel.changeLanguage(code) },
-                        onStartTour = { showTourStep = 0 },
-                        onSettingsClick = { showSettingsDialog = true }
-                    )
-                }
-            },
-            bottomBar = {
-                if (currentLesson == null) {
-                    AppBottomNavigation(
-                        selectedTab = selectedTab,
-                        onTabSelected = { viewModel.selectTab(it) },
-                        langCode = langCode
-                    )
-                }
-            }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(ThemeSoftBg)
-            ) {
-                if (currentLesson != null) {
-                    // If a lesson is being taken, show full-bleed coding simulator view
-                    ActiveLessonSimulator(viewModel = viewModel, langCode = langCode)
-                } else {
-                    // Standard tabs based content structure with optional Offline Banner
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        OfflineStatusBanner(
-                            isOnline = isOnline,
-                            onToggleNetwork = { viewModel.toggleNetworkMode() },
-                            langCode = langCode
+                .padding(innerPadding)
+                .background(colors.background)
+        ) {
+            if (currentLesson != null) {
+                // If a lesson is being taken, show full-bleed coding simulator view
+                ActiveLessonSimulator(viewModel = viewModel, langCode = langCode)
+            } else {
+                // Standard tabs based content structure
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(180))
+                    },
+                    label = "tabChange"
+                ) { tab ->
+                    when (tab) {
+                        "home" -> DashboardTab(
+                            viewModel = viewModel,
+                            langCode = langCode,
+                            onOpenLanguageDialog = { showLanguageDialog = true },
+                            onOpenShowcase = { showShowcaseDialog = true },
+                            onOpenRateDialog = { showRateDialog = true },
+                            onOpenFeedbackDialog = { showFeedbackDialog = true },
+                            onOpenPrivacyPolicy = { showPrivacyDialog = true },
+                            onOpenTermsOfService = { showTermsDialog = true },
+                            onOpenSettings = { showSettingsDialog = true },
+                            onOpenSubscriptionPlans = { showSubscriptionDialog = true }
                         )
-                        Box(modifier = Modifier.weight(1f)) {
-                            AnimatedContent(
-                                targetState = selectedTab,
-                                transitionSpec = {
-                                    fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(180))
-                                },
-                                label = "tabChange"
-                            ) { tab ->
-                                when (tab) {
-                                    "home" -> DashboardTab(viewModel = viewModel, langCode = langCode, onShowOnboarding = { showOnboarding = true })
-                                    "builds" -> BuildsTab(viewModel = viewModel, langCode = langCode)
-                                    "learn" -> LearnTab(viewModel = viewModel, langCode = langCode)
-                                    "ai_chat" -> AiChatTab(viewModel = viewModel, langCode = langCode)
-                                    "community" -> CommunityTab(viewModel = viewModel, langCode = langCode)
-                                    "mentorship" -> MentorshipTab(viewModel = viewModel, langCode = langCode)
-                                }
-                            }
-                        }
+                        "builds" -> BuildsTab(viewModel = viewModel, langCode = langCode)
+                        "learn" -> LearnTab(viewModel = viewModel, langCode = langCode)
+                        "ai_chat" -> AiChatTab(viewModel = viewModel, langCode = langCode)
+                        "community" -> CommunityTab(viewModel = viewModel, langCode = langCode)
+                        "mentorship" -> MentorshipTab(viewModel = viewModel, langCode = langCode)
+                        else -> DashboardTab(
+                            viewModel = viewModel,
+                            langCode = langCode,
+                            onOpenLanguageDialog = { showLanguageDialog = true },
+                            onOpenShowcase = { showShowcaseDialog = true },
+                            onOpenRateDialog = { showRateDialog = true },
+                            onOpenFeedbackDialog = { showFeedbackDialog = true },
+                            onOpenPrivacyPolicy = { showPrivacyDialog = true },
+                            onOpenTermsOfService = { showTermsDialog = true },
+                            onOpenSettings = { showSettingsDialog = true },
+                            onOpenSubscriptionPlans = { showSubscriptionDialog = true }
+                        )
                     }
                 }
             }
@@ -185,195 +210,150 @@ fun MainAppScreen(viewModel: MainViewModel) {
     }
 
     if (showSettingsDialog) {
-        SettingsDialog(
-            currentLangCode = langCode,
+        SettingsHubDialog(
             userProfile = userProfile,
-            isOnline = isOnline,
+            currentThemeMode = themeMode,
+            onSetThemeMode = { viewModel.setThemeMode(it) },
             onDismiss = { showSettingsDialog = false },
-            onLangSelected = { code ->
-                viewModel.changeLanguage(code)
+            onOpenRateDialog = {
+                showSettingsDialog = false
+                showRateDialog = true
             },
-            onToggleDataSaver = { enabled ->
-                viewModel.toggleDataSavingMode(enabled)
+            onOpenFeedbackDialog = {
+                showSettingsDialog = false
+                showFeedbackDialog = true
             },
-            onToggleNetwork = {
-                viewModel.toggleNetworkMode()
+            onOpenPrivacyPolicy = {
+                showSettingsDialog = false
+                showPrivacyDialog = true
+            },
+            onOpenTermsOfService = {
+                showSettingsDialog = false
+                showTermsDialog = true
+            },
+            onOpenShowcase = {
+                showSettingsDialog = false
+                showShowcaseDialog = true
+            },
+            onOpenLanguagePicker = {
+                showSettingsDialog = false
+                showLanguageDialog = true
+            },
+            onOpenEditProfile = {
+                showSettingsDialog = false
+                showEditProfileDialog = true
+            },
+            onToggleDataSaving = {
+                viewModel.toggleDataSaving(it)
             }
         )
     }
 
-    if (showOfflineAccountDialog) {
-        OfflineAccountDialog(
-            userProfile = userProfile,
-            onDismiss = { showOfflineAccountDialog = false },
-            onSubmit = { name, role, language, xp ->
-                viewModel.updateOfflineUserProfile(name, role, language, xp)
-                showOfflineAccountDialog = false
-                android.widget.Toast.makeText(
-                    viewModel.getApplication(),
-                    "🎉 Offline Account is active on this device!",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
+    if (showRateDialog) {
+        RateAppDialog(
+            initialRating = userRating,
+            onDismiss = { showRateDialog = false },
+            onSubmit = { rating, comment ->
+                viewModel.submitRating(rating, comment)
             }
         )
     }
 
-    // 100-Day Onboarding Journey Win Celebration Dialogue
-    val activeOnboardingWin by viewModel.activeOnboardingWin.collectAsState()
-    activeOnboardingWin?.let { winPhase ->
-        OnboardingWinDialog(
-            phase = winPhase,
-            onDismiss = { viewModel.dismissOnboardingWin() }
+    if (showFeedbackDialog) {
+        UserFeedbackDialog(
+            onDismiss = { showFeedbackDialog = false },
+            onSubmit = { category, text ->
+                viewModel.submitFeedback(category, text)
+            }
         )
     }
 
-    // Download progress overlay dialog
-    downloadProgress?.let { progress ->
-        androidx.compose.ui.window.Dialog(onDismissRequest = {}) {
-            androidx.compose.material3.Card(
-                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, ThemeCardBorder),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+    if (showPrivacyDialog) {
+        PrivacyPolicyDialog(
+            onDismiss = { showPrivacyDialog = false }
+        )
+    }
+
+    if (showTermsDialog) {
+        TermsOfServiceDialog(
+            onDismiss = { showTermsDialog = false }
+        )
+    }
+
+    if (showShowcaseDialog) {
+        PlayStoreShowcaseDialog(
+            onDismiss = { showShowcaseDialog = false },
+            onNavigateToTab = { tab ->
+                viewModel.selectTab(tab)
+            }
+        )
+    }
+
+    if (showSubscriptionDialog) {
+        SubscriptionPlansDialog(
+            viewModel = viewModel,
+            onDismiss = { showSubscriptionDialog = false }
+        )
+    }
+
+    if (showEditProfileDialog) {
+        Dialog(onDismissRequest = { showEditProfileDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF2E094E),
+                border = BorderStroke(1.dp, Color(0xFF4D177E)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    androidx.compose.material3.CircularProgressIndicator(color = ThemeIndigo, modifier = Modifier.size(40.dp))
+                Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = "Downloading Course Materials... ${(progress * 100).toInt()}%",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color.Black
-                    )
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                        color = ThemeIndigo,
-                        trackColor = Color.LightGray.copy(alpha = 0.3f)
-                    )
-                    Text(
-                        text = "Saving to offline cache. Please wait. Sula kancane, silungisa izifundo...",
-                        fontSize = 11.sp,
-                        color = Color.Gray,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
-            }
-        }
-    }
-
-    // Interactive Guided Product Tour Dialog
-    showTourStep?.let { step ->
-        GuidedTourDialog(
-            step = step,
-            onNext = {
-                if (step < 3) {
-                    showTourStep = step + 1
-                } else {
-                    showTourStep = null
-                    android.widget.Toast.makeText(viewModel.getApplication(), "🎉 Tour completed! You're ready to build, sister!", android.widget.Toast.LENGTH_LONG).show()
-                }
-            },
-            onSkip = {
-                showTourStep = null
-                android.widget.Toast.makeText(viewModel.getApplication(), "Tour skipped. Enjoy learning!", android.widget.Toast.LENGTH_SHORT).show()
-            },
-            langCode = langCode
-        )
-    }
-}
-
-// Interactive Guided Product Tour Dialog Composable
-@Composable
-fun GuidedTourDialog(
-    step: Int,
-    onNext: () -> Unit,
-    onSkip: () -> Unit,
-    langCode: String
-) {
-    val title = when (step) {
-        0 -> Localization.translate("tour_title_0", langCode)
-        1 -> Localization.translate("tour_title_1", langCode)
-        2 -> Localization.translate("tour_title_2", langCode)
-        3 -> Localization.translate("tour_title_3", langCode)
-        else -> "Product Tour"
-    }
-    
-    val text = when (step) {
-        0 -> Localization.translate("tour_text_0", langCode)
-        1 -> Localization.translate("tour_text_1", langCode)
-        2 -> Localization.translate("tour_text_2", langCode)
-        3 -> Localization.translate("tour_text_3", langCode)
-        else -> ""
-    }
-    
-    val nextLabel = if (step == 3) Localization.translate("tour_finish", langCode) else Localization.translate("tour_next", langCode)
-
-    androidx.compose.ui.window.Dialog(onDismissRequest = onSkip) {
-        androidx.compose.material3.Card(
-            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF1B0B30)),
-            border = BorderStroke(1.5.dp, ThemeGold),
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = title,
-                        color = ThemeGold,
+                        text = "Edit Profile & Hub",
+                        color = Color.White,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = "${step + 1} / 4",
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
-                }
-                
-                Text(
-                    text = text,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = onSkip,
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
-                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Mama • Bloemfontein Hub",
+                        color = ThemeGold,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TextField(
+                        value = editNameInput,
+                        onValueChange = { editNameInput = it },
+                        label = { Text("Your Name", color = Color.White.copy(alpha = 0.7f)) },
+                        colors = TextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = Color(0xFF1E0635),
+                            unfocusedContainerColor = Color(0xFF1E0635),
+                            cursorColor = ThemeGold,
+                            focusedIndicatorColor = ThemeGold,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
                     ) {
-                        Text(Localization.translate("tour_skip", langCode), fontSize = 11.sp)
-                    }
-                    
-                    androidx.compose.material3.Button(
-                        onClick = onNext,
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = ThemeGold, contentColor = Color.Black),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1.2f)
-                    ) {
-                        Text(nextLabel, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        TextButton(onClick = { showEditProfileDialog = false }) {
+                            Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (editNameInput.isNotBlank()) {
+                                    viewModel.updateProfileName(editNameInput.trim())
+                                }
+                                showEditProfileDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeGold)
+                        ) {
+                            Text("Save", color = Color(0xFF26053D), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -390,21 +370,14 @@ fun AppHeader(
     onLangClick: () -> Unit,
     onToggleNetwork: () -> Unit,
     onEditProfile: () -> Unit = {},
-    onLanguageSelected: (String) -> Unit = {},
-    onStartTour: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onOpenSettings: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(ThemeIndigo, Color(0xFF330066))
-                )
-            )
+            .background(Color(0xFF26053D))
             .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         // Logo & Controls row
         Row(
@@ -430,7 +403,7 @@ fun AppHeader(
                     )
                 }
                 Text(
-                    text = Localization.translate("south_africa", langCode),
+                    text = "SOUTH AFRICA",
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -446,15 +419,12 @@ fun AppHeader(
                 )
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 // Network Status Toggle Widget
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isOnline) Color(0xFF10B981).copy(alpha = 0.2f) else Color.White.copy(alpha = 0.15f))
+                        .background(if (isOnline) Color(0xFF0F3E2E) else Color.White.copy(alpha = 0.15f))
                         .clickable { onToggleNetwork() }
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
@@ -467,50 +437,35 @@ fun AppHeader(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(if (isOnline) Color(0xFF10B981) else Color(0xFFFFB800))
+                                .background(if (isOnline) Color(0xFF00E676) else Color(0xFFFFB800))
                         )
                         Text(
-                            text = if (isOnline) Localization.translate("online_status", langCode) else Localization.translate("offline_status", langCode),
-                            color = if (isOnline) Color(0xFF10B981) else Color.White,
+                            text = if (isOnline) "ONLINE" else "OFFLINE",
+                            color = if (isOnline) Color(0xFF00E676) else Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 9.sp
                         )
                     }
                 }
 
-                // Language selector pill restored for premium spacing
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Language selector pill
                 Button(
                     onClick = onLangClick,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f)
+                        containerColor = Color(0xFF38105B)
                     ),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .height(34.dp)
-                        .testTag("lang_selector_button")
+                    modifier = Modifier.height(34.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        val flag = when (langCode) {
-                            "en" -> "🇿🇦"
-                            "zu" -> "🇿🇦"
-                            "xh" -> "🇿🇦"
-                            "af" -> "🇿🇦"
-                            "nso" -> "🇿🇦"
-                            "tn" -> "🇿🇦"
-                            "st" -> "🇿🇦"
-                            "ts" -> "🇿🇦"
-                            "ss" -> "🇿🇦"
-                            "ve" -> "🇿🇦"
-                            "nr" -> "🇿🇦"
-                            "sasl" -> "🤟"
-                            else -> "🇿🇦"
-                        }
                         Text(
-                            text = "$flag " + (Localization.languages.find { it.code == langCode }?.localName ?: "English"),
+                            text = "🇿🇦 ${Localization.languages.find { it.code == langCode }?.localName ?: "English"}",
                             color = ThemeGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -524,29 +479,22 @@ fun AppHeader(
                     }
                 }
 
-                // Help/Tour icon button for Inquisitive/Nervous User
-                androidx.compose.material3.IconButton(
-                    onClick = onStartTour,
-                    modifier = Modifier.size(34.dp)
-                ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Help,
-                        contentDescription = "Take Guided Tour",
-                        tint = ThemeGold,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Spacer(modifier = Modifier.width(6.dp))
 
-                // Settings icon button for language and other configs
-                androidx.compose.material3.IconButton(
-                    onClick = onSettingsClick,
-                    modifier = Modifier.size(34.dp).testTag("settings_button")
+                // Settings & Hub Icon button
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF38105B))
+                        .clickable { onOpenSettings() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Settings,
-                        contentDescription = "Settings Menu",
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings & Hub",
                         tint = ThemeGold,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -559,17 +507,16 @@ fun AppHeader(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.White.copy(alpha = 0.08f))
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
-                    .clickable { onEditProfile() }
-                    .padding(12.dp),
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Color(0xFF350B56))
+                    .border(1.dp, Color(0xFF4F1A7E), RoundedCornerShape(22.dp))
+                    .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Native avatar design representing a mama with traditional headwrap (Naledi)
+                // Native avatar icon
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(46.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(ThemeGold),
                     contentAlignment = Alignment.Center
@@ -577,8 +524,8 @@ fun AppHeader(
                     Text(
                         text = profile.name.take(1).uppercase(),
                         fontWeight = FontWeight.Black,
-                        fontSize = 22.sp,
-                        color = ThemeIndigo
+                        fontSize = 24.sp,
+                        color = Color(0xFF26053D)
                     )
                 }
 
@@ -587,24 +534,27 @@ fun AppHeader(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "${Localization.translate("greeting_sawubona", langCode)}, ${profile.name}! 👋",
+                            text = "Sawubona, ${profile.name.take(6)}... ",
                             color = Color.White,
                             fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit Profile",
                             tint = ThemeGold,
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clickable { onEditProfile() }
                         )
                     }
                     Text(
-                        text = "${profile.role} • Bloemfontein Hub",
+                        text = "${profile.role} •",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = "Bloemfontein Hub",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 11.sp
                     )
@@ -618,7 +568,7 @@ fun AppHeader(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = Localization.translate("total_xp", langCode).uppercase(),
-                            color = ThemeGold,
+                            color = Color(0xFFFFB300),
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -626,8 +576,8 @@ fun AppHeader(
                             Icon(
                                 imageVector = Icons.Filled.Star,
                                 contentDescription = "XP Logo",
-                                tint = ThemeGold,
-                                modifier = Modifier.size(13.dp)
+                                tint = Color(0xFFFFB300),
+                                modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
@@ -651,7 +601,7 @@ fun AppHeader(
                                 imageVector = Icons.Filled.Whatshot,
                                 contentDescription = "Streak",
                                 tint = Color(0xFFFF5722),
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
@@ -665,8 +615,6 @@ fun AppHeader(
                 }
             }
         }
-
-        // Persistent selector removed for premium spacing, keeping layout neat
     }
 }
 
@@ -677,19 +625,21 @@ fun AppBottomNavigation(
     onTabSelected: (String) -> Unit,
     langCode: String
 ) {
+    val colors = LocalKodeMamasColors.current
+
     NavigationBar(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-            .border(1.dp, ThemeCardBorder, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-        containerColor = Color.White,
+            .border(1.dp, colors.cardBorder, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+        containerColor = colors.bottomNavBackground,
         tonalElevation = 8.dp
     ) {
         val items = listOf(
             Triple("home", Icons.Default.Home, Localization.translate("dashboard", langCode)),
             Triple("builds", Icons.Default.Build, Localization.translate("builds", langCode)),
             Triple("learn", Icons.Default.School, Localization.translate("lessons", langCode)),
-            Triple("ai_chat", Icons.Default.Assistant, Localization.translate("ai_assistant", langCode)),
+            Triple("ai_chat", Icons.Default.AutoAwesome, Localization.translate("ai_assistant", langCode)),
             Triple("community", Icons.Default.Forum, Localization.translate("community", langCode)),
             Triple("mentorship", Icons.Default.CardMembership, Localization.translate("premium", langCode))
         )
@@ -703,479 +653,515 @@ fun AppBottomNavigation(
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
-                        tint = if (isSelected) ThemeIndigo else Color.Gray.copy(alpha = 0.7f),
-                        modifier = Modifier
-                            .size(20.dp)
+                        tint = if (isSelected) (if (colors.isDark) colors.brandGold else Color(0xFF26053D)) else colors.textSecondary.copy(alpha = 0.7f),
+                        modifier = Modifier.size(22.dp)
                     )
                 },
                 label = {
                     Text(
                         text = label,
-                        fontSize = 9.sp,
+                        fontSize = 10.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) ThemeIndigo else Color.Gray,
+                        color = if (isSelected) (if (colors.isDark) colors.brandGold else Color(0xFF26053D)) else colors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    indicatorColor = ThemeIndigo.copy(alpha = 0.08f)
+                    indicatorColor = if (colors.isDark) colors.surfaceVariant else Color(0xFFE8DEF8)
                 )
             )
         }
     }
 }
 
-// ---------------------- DATA MODEL: CAREER PATHWAY ITEM ----------------------
-data class PathwayItem(
-    val title: String,
-    val salary: String,
-    val cities: String,
-    val roadmap: List<String>,
-    val capstone: String,
-    val quizQuestion: String,
-    val quizOptions: List<String>,
-    val correctAnswerIndex: Int,
-    val explanation: String
-)
-
 // ---------------------- TAB 1: DASHBOARD / HOME ----------------------
 @Composable
-fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: () -> Unit = {}) {
+fun DashboardTab(
+    viewModel: MainViewModel,
+    langCode: String,
+    onOpenLanguageDialog: () -> Unit = {},
+    onOpenShowcase: () -> Unit = {},
+    onOpenRateDialog: () -> Unit = {},
+    onOpenFeedbackDialog: () -> Unit = {},
+    onOpenPrivacyPolicy: () -> Unit = {},
+    onOpenTermsOfService: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenSubscriptionPlans: () -> Unit = {}
+) {
+    val colors = LocalKodeMamasColors.current
     val lessons by viewModel.allLessons.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val challenges by viewModel.allChallenges.collectAsState()
     val activeChallenge by viewModel.activeChallenge.collectAsState()
+    val currentPlan by viewModel.currentPlanTier.collectAsState()
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
 
     var showCertificateDialog by remember { mutableStateOf(false) }
 
-    // Navigation sub-state for the dashboard category switcher
-    var activeSubSection by remember { mutableStateOf("dashboard") } // dashboard, pathways, parent, school, analytics, viral
+    // State for Interactive Code Preview Demo
+    var selectedDemoCategory by remember { mutableStateOf("HTML") }
+    var isDemoRunning by remember { mutableStateOf(false) }
+    var demoRunCompleted by remember { mutableStateOf(false) }
 
-    // --- Interactive state for Pathways ---
-    var selectedPathIndex by remember { mutableStateOf(0) }
-    var pathwaysSearchQuery by remember { mutableStateOf("") }
-    val pathwayQuizAnswers = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int?>() }
-    val pathwayChecklistState = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
-
-    // --- Interactive state for Parent Portal ---
-    var parentName by remember { mutableStateOf("Mama Nobuhle") }
-    var isSafeSearchEnabled by remember { mutableStateOf(true) }
-    var isCommunityCirclesOnly by remember { mutableStateOf(true) }
-    var studyGoalTime by remember { mutableStateOf("1.5 Hours / Day") }
-    var showGoalSettings by remember { mutableStateOf(false) }
-
-    // --- Interactive state for School Hub ---
-    var inviteStudentName by remember { mutableStateOf("") }
-    var inviteStudentPhone by remember { mutableStateOf("") }
-    val simulatedClassStudents = remember {
-        mutableStateListOf(
-            Triple("Lindiwe Cele", "240 XP", "Lesson 2"),
-            Triple("Sipho Ndlovu", "180 XP", "Lesson 1"),
-            Triple("Nompumelelo Dlamini", "120 XP", "Lesson 1"),
-            Triple("Thabo Mokoena", "60 XP", "Lesson 1")
-        )
-    }
-
-    // --- Interactive state for Viral Hub ---
-    var simulatedInvitesCount by remember { mutableStateOf(2) }
-    var showSharingSimulationResult by remember { mutableStateOf(false) }
-    var selectedSharingPlatform by remember { mutableStateOf("") }
-    val generatedReferralCode = "MAMA-7842-NALEDI"
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    val allPathways = remember {
-        listOf(
-            PathwayItem(
-                title = "Web Developer",
-                salary = "R12,000 - R18,000 / month",
-                cities = "Johannesburg, Cape Town, Bloemfontein",
-                roadmap = listOf("Write semantic HTML structure", "Style with responsive CSS sheets", "Incorporate local offline-first elements", "Deploy to static web hosting channels"),
-                capstone = "Bloemfontein Bakery digital storefront catalog",
-                quizQuestion = "Which HTML element denotes the primary navigational section?",
-                quizOptions = listOf("<div id=\"nav\">", "<header>", "<nav>", "<aside>"),
-                correctAnswerIndex = 2,
-                explanation = "Phenomenal! Under WCAG accessibility standards, the <nav> block explicitly communicates navigation capabilities to screen readers and compilers."
-            ),
-            PathwayItem(
-                title = "Mobile App Developer",
-                salary = "R15,000 - R22,000 / month",
-                cities = "Durban, Johannesburg, Midrand",
-                roadmap = listOf("Master Kotlin variables and functions", "Build responsive Jetpack Compose rows", "Define Room SQLite tables and queries", "Execute remote Retrofit network pipelines"),
-                capstone = "Township Taxi Hub Tracker & routing catalog",
-                quizQuestion = "Which state holder keeps state safe from Compose screen recomposition?",
-                quizOptions = listOf("remember { mutableStateOf() }", "val a = mutableStateOf()", "var state: String = \"\"", "LiveData"),
-                correctAnswerIndex = 0,
-                explanation = "Perfect! Wrapping state in remember guarantees it stays cached in memory over recompositions."
-            ),
-            PathwayItem(
-                title = "Software Engineer",
-                salary = "R18,000 - R26,000 / month",
-                cities = "Pretoria, Centurion, Johannesburg",
-                roadmap = listOf("Understand algorithms on space/time scales", "Track offline version checkpoints via Git", "Write rigorous unit tests using JUnit", "Configure server CI/CD build actions"),
-                capstone = "Spaza Shop order billing compiler logic",
-                quizQuestion = "Which program translates high-level code into executable machine binaries?",
-                quizOptions = listOf("Interpreter", "Compiler", "Debugger", "Linker"),
-                correctAnswerIndex = 1,
-                explanation = "Yes! Compilers perform semantic checks and generate optimized executable instructions."
-            ),
-            PathwayItem(
-                title = "Data Analyst",
-                salary = "R14,000 - R20,000 / month",
-                cities = "Gqeberha, Rosebank, Johannesburg",
-                roadmap = listOf("Query databases via SQL selection joins", "Clean statistics using MS Excel spreadsheets", "Wrangle metrics in Python Pandas frames", "Render diagnostic visual dashboards"),
-                capstone = "Soweto Spaza Crop crop forecast visualizer",
-                quizQuestion = "Which SQL clause joins related tables together based on a common key?",
-                quizOptions = listOf("MERGE", "WHERE", "JOIN", "UNION"),
-                correctAnswerIndex = 2,
-                explanation = "Correct! JOIN binds columns from separate database tables matching matching row values."
-            ),
-            PathwayItem(
-                title = "AI Engineer",
-                salary = "R22,000 - R32,000 / month",
-                cities = "Sandton, Stellenbosch, Pretoria",
-                roadmap = listOf("Familiarize with math weights & layers", "Train visual classifiers in PyTorch libraries", "Leverage Gemini API securely via REST", "Engineer aligned structured prompts"),
-                capstone = "Multilingual South African AI Study Tutor Chatbot",
-                quizQuestion = "Which Gemini model on Google AI Studio minimizes text processing costs?",
-                quizOptions = listOf("Gemini 1.5 Pro", "Gemini 1.5 Flash", "Gemini 1.0 Ultra", "Gemma 7B"),
-                correctAnswerIndex = 1,
-                explanation = "Correct! Gemini 1.5 Flash is highly structured for massive high-speed text queries."
-            ),
-            PathwayItem(
-                title = "Cybersecurity Analyst",
-                salary = "R16,000 - R24,000 / month",
-                cities = "Cape Town, Rosebank, Stellenbosch",
-                roadmap = listOf("Familiarize with Linux directory parameters", "Hash login profiles secure with crypt keys", "Scan security breaches in socket loops", "Enforce JSON Web Token auth blocks"),
-                capstone = "Spaza billing gateway credential encryption hub",
-                quizQuestion = "Which cryptographic standard represents the current secure standard for passwords?",
-                quizOptions = listOf("MD5", "BCrypt", "Plain text", "ROT13"),
-                correctAnswerIndex = 1,
-                explanation = "Correct! BCrypt uses secure salted hashing to prevent reverse tables matching breaches."
-            ),
-            PathwayItem(
-                title = "UX/UI Designer",
-                salary = "R11,000 - R17,000 / month",
-                cities = "Randburg, Johannesburg, Cape Town",
-                roadmap = listOf("Sketch basic UI layout grid scopes", "Establish clear typography spacing parameters", "Incorporate Google Material Design 3 guidelines", "Link responsive flow triggers inside Figma prototypes"),
-                capstone = "KodeMamas mobile system UI wireframe overhaul",
-                quizQuestion = "What is the recommended accessible touch target padding dimension?",
-                quizOptions = listOf("24dp x 24dp", "32dp x 32dp", "40dp x 40dp", "48dp x 48dp"),
-                correctAnswerIndex = 3,
-                explanation = "Absolutely! Material 3 targets a minimum tap target of 48dp to ensure usability."
-            ),
-            PathwayItem(
-                title = "Cloud Engineer",
-                salary = "R19,000 - R28,000 / month",
-                cities = "Midrand, Centurion, Cape Town",
-                roadmap = listOf("Allocate secure cloud bucket clusters", "Launch server configurations in Cloud Run container ports", "Manage portable images via Docker", "Setup secure connection routes"),
-                capstone = "Offline-first sync database backup utility",
-                quizQuestion = "Which virtualization tool isolates applications in lightweight, separate runtimes?",
-                quizOptions = listOf("VirtualBox", "Docker", "Xen", "Kubernetes"),
-                correctAnswerIndex = 1,
-                explanation = "Correct! Docker packs application software and configurations into lightweight containers."
-            ),
-            PathwayItem(
-                title = "DevOps Engineer",
-                salary = "R22,000 - R31,000 / month",
-                cities = "Rosebank, Durban, Centurion",
-                roadmap = listOf("Configure test workflows triggered by Git commits", "Verify build compilers in automated cycles", "Draft robust Bash shell automation scripts", "Observe system stability dashboards"),
-                capstone = "KodeMamas automated compile stability checker",
-                quizQuestion = "Which file type defines workflows in GitHub Actions?",
-                quizOptions = listOf("JSON", "YAML (.yml)", "XML", "Properties"),
-                correctAnswerIndex = 1,
-                explanation = "Perfect! GitHub system parsers read and compile action rules specified in YAML configs."
-            ),
-            PathwayItem(
-                title = "Digital Entrepreneur",
-                salary = "R10,000 - R50,000 / month",
-                cities = "Nationwide South Africa (Township focus)",
-                roadmap = listOf("Verify business model canvas details", "Register new SME with local CIPC offices", "Connect instant EFT or Capitec Pay channels", "Publish local social media promotions"),
-                capstone = "Bloemfontein neighborhood digital spaza index storefront",
-                quizQuestion = "Which rapid local checkout standard bypasses plastic credit cards in townships?",
-                quizOptions = listOf("Cheque lines", "Wire code", "Capitec Pay", "Manual bank dispatch"),
-                correctAnswerIndex = 2,
-                explanation = "Spot on! Capitec Pay has accelerated township checkouts by routing payments directly to the user's mobile app."
-            )
-        )
-    }
+    val allLanguagesShowcase = listOf(
+        Triple("zu", "isiZulu", "Sawubona! Funda amakhodi"),
+        Triple("xh", "isiXhosa", "Molo! Khowuda lula"),
+        Triple("af", "Afrikaans", "Hallo! Leer kodering"),
+        Triple("nso", "Sepedi", "Dumela! Ithute khoute"),
+        Triple("tn", "Setswana", "Dumela! Ithute go khouta"),
+        Triple("st", "Sesotho", "Khotso! Ithute khoutu"),
+        Triple("ts", "Xitsonga", "Avuxeni! Dyondza khoudu"),
+        Triple("ss", "siSwati", "Sawubona! Funda kukhoda"),
+        Triple("ve", "Tshivenda", "Ndaa! Guda u khouda"),
+        Triple("nr", "isiNdebele", "Lotjhani! Funda ikhowudi"),
+        Triple("en", "English", "Welcome! Learn to code"),
+        Triple("sasl", "Sign Language", "Visual Gestures & Guides")
+    )
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Horizontal Category Tabs Hub
+        // 1. HERO SECTION INTRODUCING KODEMAMAS
         item {
-            val categories = listOf(
-                Triple("dashboard", "👩‍🎓 " + Localization.translate("sub_dashboard", langCode), "Main studies"),
-                Triple("pathways", "🗺️ " + Localization.translate("sub_pathways", langCode), "Roadmaps & roles"),
-                Triple("parent", "👥 " + Localization.translate("sub_parent", langCode), "Progress & safety"),
-                Triple("school", "🏫 " + Localization.translate("sub_schools", langCode), "Classrooms & NGOs"),
-                Triple("analytics", "📊 " + Localization.translate("sub_analytics", langCode), "Platform records"),
-                Triple("viral", "📣 " + Localization.translate("sub_viral", langCode), "Invites & sharing")
-            )
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.White)
+                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(28.dp))
+                    .padding(20.dp)
             ) {
-                categories.forEach { (id, label, desc) ->
-                    val isSelected = activeSubSection == id
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) ThemeIndigo else Color.White)
-                            .border(1.dp, if (isSelected) ThemeIndigo else ThemeCardBorder, RoundedCornerShape(16.dp))
-                            .clickable { activeSubSection = id }
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                Column {
+                    // Badge: Built for South African Communities
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = label,
-                            color = if (isSelected) Color.White else ThemeIndigo,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ThemeIndigo.copy(alpha = 0.08f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "🇿🇦 BUILT FOR SOUTH AFRICAN COMMUNITIES",
+                                color = ThemeIndigo,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE6F4EA))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "OFFLINE COMPILER",
+                                color = Color(0xFF137333),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = Localization.translate("learn_coding", langCode) + "!",
+                        color = Color.Black,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        lineHeight = 28.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Empowering mothers, girls, students, and underserved communities to code in their home language, build digital storefronts, and enter the tech ecosystem.",
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Call-To-Action buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                val firstPlayable = lessons.find { it.isUnlocked } ?: lessons.firstOrNull()
+                                firstPlayable?.let { viewModel.selectLesson(it) }
+                                viewModel.selectTab("learn")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                            modifier = Modifier.testTag("hero_start_coding_button")
+                        ) {
+                            Text(
+                                text = Localization.translate("get_started", langCode),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = onOpenLanguageDialog,
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, ThemeIndigo),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                            modifier = Modifier.testTag("hero_language_button")
+                        ) {
+                            Text(
+                                text = "12 Languages 🇿🇦",
+                                color = ThemeIndigo,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Data Saver toggle switch
+                        userProfile?.let { profile ->
+                            IconButton(
+                                onClick = { viewModel.toggleDataSavingMode(!profile.dataSavingMode) },
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (profile.dataSavingMode) Color(0xFFE8F0FE) else Color.Gray.copy(alpha = 0.1f))
+                                    .testTag("data_saver_toggle")
+                            ) {
+                                Icon(
+                                    imageVector = if (profile.dataSavingMode) Icons.Default.SignalCellularAlt2Bar else Icons.Default.SignalCellularAlt,
+                                    contentDescription = "Data Saver",
+                                    tint = if (profile.dataSavingMode) Color(0xFF1A73E8) else Color.DarkGray,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        if (activeSubSection == "dashboard") {
-            // User Profile Card (Screen Element 2)
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.White)
-                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
-                        .padding(18.dp)
-                ) {
+        // 1.5. KODEMAMAS MEMBERSHIP PLANS & CAPITEC BANKING HERO BANNER
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .border(1.dp, ThemeGold.copy(alpha = 0.4f), RoundedCornerShape(22.dp)),
+                colors = CardDefaults.cardColors(containerColor = ThemeDarkBg)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f, fill = false)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🇿🇦", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "KodeMamas Membership Plans",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ThemeGold)
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
-                            // Profile letter avatar "N"
+                            Text(
+                                text = when (currentPlan) {
+                                    "PREMIUM" -> "PREMIUM (R299/yr)"
+                                    "STANDARD" -> "STANDARD (R99/yr)"
+                                    else -> "CAPITEC EFT"
+                                },
+                                color = Color.Black,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Standard Pill
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Text("Standard", color = ThemeGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                Text("R99 / year", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("Offline lessons, 12 languages, quizzes & certificates", color = Color.White.copy(alpha = 0.75f), fontSize = 9.sp, lineHeight = 12.sp)
+                            }
+                        }
+
+                        // Premium Pill
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .border(1.dp, ThemeGold.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Text("Premium", color = ThemeGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                Text("R299 / year", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("1-on-1 mentorship, CV/portfolio builder, mock interviews", color = Color.White.copy(alpha = 0.75f), fontSize = 9.sp, lineHeight = 12.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Capitec Account Bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF1E1332))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Capitec Acc: 2121743886",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        TextButton(
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString("2121743886"))
+                                Toast.makeText(context, "Capitec Account 2121743886 copied! 🇿🇦", Toast.LENGTH_SHORT).show()
+                            },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text("Copy Acc", color = ThemeGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = onOpenSubscriptionPlans,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Text("View Plans & EFT Instructions", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
+        // 2. OFFLINE + ONLINE LEARNING ARCHITECTURE SHOWCASE
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Brush.horizontalGradient(listOf(ThemeDarkBg, Color(0xFF1B0C2E))))
+                    .border(1.dp, ThemeGold.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                    .padding(18.dp)
+            ) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(16.dp))
                                     .background(ThemeGold),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "N",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 22.sp,
-                                    color = Color(0xFF2E0A4E)
-                                )
+                                Icon(imageVector = Icons.Default.WifiOff, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
                             }
-
-                            Spacer(modifier = Modifier.width(14.dp))
-
+                            Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Mama • Bloemfontein Hub",
-                                    color = Color(0xFF1F2937),
+                                    text = "Offline + Online Learning",
+                                    color = Color.White,
                                     fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 2,
-                                    lineHeight = 20.sp
+                                    fontWeight = FontWeight.Black
                                 )
                                 Text(
-                                    text = Localization.translate("tech_scholar", langCode),
-                                    color = Color.Gray,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
+                                    text = "Engineered for Township & Rural Networks",
+                                    color = ThemeGold,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Gamification metrics
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE6F4EA))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
-                            // 210 XP metric pill
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFFFFFBEB))
-                                    .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(14.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "XP",
-                                        tint = Color(0xFFF59E0B),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = "210 XP",
-                                        color = Color(0xFFB45309),
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
+                            Text(text = "0 DATA MODE", color = Color(0xFF137333), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
 
-                            // 3 Day Streak metric pill
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFFFFF7ED))
-                                    .border(1.dp, Color(0xFFFED7AA), RoundedCornerShape(14.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Whatshot,
-                                        contentDescription = "Streak",
-                                        tint = Color(0xFFEA580C),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = "3 Day Streak",
-                                        color = Color(0xFFC2410C),
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Download lessons once over Wi-Fi or data, then practice HTML, CSS, JavaScript, and Python 100% offline without spending mobile airtime. Fast loading, small app footprint, and low battery consumption on entry-level Android devices.",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Download all button
+                        Button(
+                            onClick = { viewModel.downloadAllLessons() },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.DownloadForOffline, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (userProfile?.hasDownloadedOffline == true) "All 4 Downloaded" else "Download Lessons",
+                                color = Color.Black,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+
+                        // Certificate shortcut
+                        OutlinedButton(
+                            onClick = { showCertificateDialog = true },
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.WorkspacePremium, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "My Certificate",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
             }
+        }
 
-            // Mid-Section Grid: Two symmetrical equal-height cards side-by-side (Screen Element 3)
-            item {
+        // 3. LANGUAGE ACCESSIBILITY SHOWCASE (ALL 12 SOUTH AFRICAN LANGUAGES)
+        item {
+            Column {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left Card: OFFLINE LESSONS
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(22.dp))
-                            .clickable { viewModel.downloadAllLessons() }
-                            .padding(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxHeight(),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFF3E8FF)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CloudDownload,
-                                    contentDescription = "Offline Cache",
-                                    tint = Color(0xFF6D28D9),
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Column {
-                                Text(
-                                    text = Localization.translate("offline_lessons_title", langCode),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF6D28D9),
-                                    letterSpacing = 0.5.sp
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = Localization.translate("all_lessons_saved", langCode),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937)
-                                )
-                            }
-                        }
+                    Column {
+                        Text(
+                            text = "Learn in Your Language 🇿🇦",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "Supporting all 12 official South African languages",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
                     }
 
-                    // Right Card: MY CERTIFICATE
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(22.dp))
-                            .clickable { showCertificateDialog = true }
-                            .padding(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxHeight(),
-                            verticalArrangement = Arrangement.SpaceBetween
+                    TextButton(onClick = onOpenLanguageDialog) {
+                        Text(text = "View All", color = ThemeIndigo, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(allLanguagesShowcase) { (code, name, greeting) ->
+                        val isSelected = code == langCode
+                        Box(
+                            modifier = Modifier
+                                .width(150.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(if (isSelected) ThemeIndigo else Color.White)
+                                .border(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) ThemeGold else ThemeCardBorder,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                .clickable { viewModel.changeLanguage(code) }
+                                .padding(12.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFEF3C7)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.WorkspacePremium,
-                                    contentDescription = "Certificates",
-                                    tint = Color(0xFFD97706),
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
                             Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = name,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.sp,
+                                        color = if (isSelected) ThemeGold else Color.Black
+                                    )
+                                    if (isSelected) {
+                                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = ThemeGold, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = Localization.translate("my_certificate_title", langCode),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFD97706),
-                                    letterSpacing = 0.5.sp
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = Localization.translate("claim_certificate_btn", langCode),
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937)
-                                )
-                                Text(
-                                    text = Localization.translate("hub_certified", langCode),
+                                    text = greeting,
                                     fontSize = 10.sp,
-                                    color = Color.Gray,
+                                    color = if (isSelected) Color.White.copy(alpha = 0.9f) else Color.DarkGray,
                                     lineHeight = 14.sp
                                 )
                             }
@@ -1183,16 +1169,340 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                     }
                 }
             }
+        }
 
-            // Challenge Card (Screen Element 4)
-            item {
+        // 4. APP PREVIEW / LIVE INTERACTIVE CODING DEMO
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White)
+                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column {
+                            Text(
+                                text = "Interactive Code Demo",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = "Try coding right here in 30 seconds!",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ThemeGold.copy(alpha = 0.2f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(text = "LIVE SANDBOX", color = Color(0xFFB06000), fontSize = 8.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Category Selector Tabs
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val categories = listOf("HTML", "CSS", "JS", "Python")
+                        categories.forEach { cat ->
+                            val isCatSelected = selectedDemoCategory == cat
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isCatSelected) ThemeIndigo else Color(0xFFF3F1FA))
+                                    .clickable {
+                                        selectedDemoCategory = cat
+                                        demoRunCompleted = false
+                                    }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = cat,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = if (isCatSelected) ThemeGold else Color.DarkGray
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Code Editor Preview Box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(ThemeDarkBg)
+                            .padding(14.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = when (selectedDemoCategory) {
+                                        "HTML" -> "index.html (Mam's Spaza Storefront)"
+                                        "CSS" -> "style.css (African Tech Palette)"
+                                        "JS" -> "calculator.js (Bread & Milk Cart)"
+                                        else -> "crops.py (Harvest Tracker)"
+                                    },
+                                    color = ThemeGold,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(text = "UTF-8", color = Color.Gray, fontSize = 9.sp)
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = when (selectedDemoCategory) {
+                                    "HTML" -> "<h1>Mam's Soweto Spaza</h1>\n<p>Fresh Bread: R16 | Milk: R22</p>\n<button>Order on WhatsApp</button>"
+                                    "CSS" -> "body {\n  background: #4B0082; /* Deep Indigo */\n  color: #FFD700; /* Radiant Gold */\n  border-radius: 16px;\n}"
+                                    "JS" -> "const bread = 16, milk = 22;\nconst total = (bread * 2) + milk;\nconsole.log('Spaza Total: R' + total);"
+                                    else -> "harvest = {'maize_bags': 45, 'price': 180}\nrevenue = harvest['maize_bags'] * harvest['price']\nprint(f'Township Yield: R{revenue}')"
+                                },
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = Color.White,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Run Demo Action Button
+                    Button(
+                        onClick = {
+                            isDemoRunning = true
+                            demoRunCompleted = true
+                            isDemoRunning = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("run_demo_button")
+                    ) {
+                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = ThemeGold, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "Run Live Code Simulator", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    // Render Simulated Output Result
+                    if (demoRunCompleted) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF9F7FD))
+                                .border(1.dp, ThemeIndigo.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = "⚡ OUTPUT PREVIEW:", fontSize = 9.sp, fontWeight = FontWeight.Black, color = ThemeIndigo)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "Compiled in 0.04s (100% Offline)", fontSize = 9.sp, color = Color(0xFF137333), fontWeight = FontWeight.Bold)
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                when (selectedDemoCategory) {
+                                    "HTML" -> {
+                                        Column {
+                                            Text(text = "Mam's Soweto Spaza", fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color.Black)
+                                            Text(text = "• Fresh Bread: R16\n• Fresh Milk: R22", fontSize = 11.sp, color = Color.DarkGray)
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(Color(0xFF25D366))
+                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Text(text = "Order on WhatsApp", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                    "CSS" -> {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(ThemeIndigo)
+                                                .padding(10.dp)
+                                        ) {
+                                            Text(
+                                                text = "African Tech Color Palette Active: Deep Indigo & Gold applied!",
+                                                color = ThemeGold,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    "JS" -> {
+                                        Text(
+                                            text = "Spaza Total Calculated: 2 Loaves (R32) + 1 Milk (R22) = R54.00",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF137333)
+                                        )
+                                    }
+                                    else -> {
+                                        Text(
+                                            text = "Predictive Harvest Revenue: 45 Bags Maize @ R180 = R8,100 Projected",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF137333)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. TOWNSHIP TECH MENTORSHIP & CAREER SHOWCASE
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White)
+                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column {
+                            Text(
+                                text = "Mentorship & Career Hub",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = "1-on-1 guidance for girls, mothers & students",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ThemeGold)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(text = "CAREERS", color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Feature 1
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF9F7FD))
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Text(text = "👩🏾‍💼 1-on-1 Mentor", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = ThemeIndigo)
+                                Text(text = "SA Tech Mentors", fontSize = 9.sp, color = Color.Gray)
+                            }
+                        }
+                        // Feature 2
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF9F7FD))
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Text(text = "📄 CV Builder", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = ThemeIndigo)
+                                Text(text = "Tech Resume Creator", fontSize = 9.sp, color = Color.Gray)
+                            }
+                        }
+                        // Feature 3
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF9F7FD))
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Text(text = "🎯 Mock Interview", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = ThemeIndigo)
+                                Text(text = "Interview Prep", fontSize = 9.sp, color = Color.Gray)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = { viewModel.selectTab("mentorship") },
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("explore_mentorship_button")
+                    ) {
+                        Text(
+                            text = "Connect with Mentors & Career Support",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // 6. DAILY CODING CHALLENGE INTERACTIVE SEGMENT
+        item {
+            val challenge = challenges.firstOrNull()
+            if (challenge != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color.White)
                         .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
-                        .padding(18.dp)
+                        .padding(16.dp)
                 ) {
                     Column {
                         Row(
@@ -1204,1380 +1514,371 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                                 Icon(
                                     imageVector = Icons.Default.Whatshot,
                                     contentDescription = "Daily challenge",
-                                    tint = Color(0xFFEA580C),
+                                    tint = Color(0xFFFF5722),
                                     modifier = Modifier.size(20.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = Localization.translate("daily_challenge_title", langCode),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF2E0A4E),
-                                    letterSpacing = 0.5.sp
+                                    text = Localization.translate("daily_challenges", langCode).uppercase(),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFFF5722)
                                 )
                             }
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFFEF3C7))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (challenge.isCompleted) Color(0xFFE6F4EA) else Color(0xFFFEF7E0))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = Localization.translate("active_status", langCode),
-                                    color = Color(0xFFB45309),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.ExtraBold
+                                    text = if (challenge.isCompleted) "SOLVED (+20 XP)" else "ACTIVE",
+                                    color = if (challenge.isCompleted) Color(0xFF137333) else Color(0xFFB06000),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = Localization.translate("daily_challenge_desc", langCode),
-                            fontSize = 13.sp,
-                            color = Color(0xFF374151),
-                            lineHeight = 19.sp,
-                            fontWeight = FontWeight.Medium
+                            text = challenge.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = challenge.description,
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            lineHeight = 16.sp
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                val challenge = challenges.firstOrNull()
-                                if (challenge != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        if (!challenge.isCompleted) {
+                            Button(
+                                onClick = {
                                     viewModel.setActiveChallenge(challenge)
                                     viewModel.solveChallenge()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E0A4E)),
-                            shape = RoundedCornerShape(16.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(text = "Accept Challenge & Run Calculation", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
                             Text(
-                                text = Localization.translate("accept_challenge_btn", langCode),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                text = "Well done! Your baking order calculations are compile-accurate. You've earned 20 XP!",
+                                color = Color(0xFF2E7D32),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
             }
+        }
 
-            // Section: "Meet the Founders" Story (Emotionally connecting with South Africans)
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(ThemeIndigo)
-                        .padding(18.dp)
-                ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(ThemeGold),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = "✊", fontSize = 16.sp)
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
+        // 7. FOUNDER MISSION & STORY (Nokwazi Nobuhle Xaba - Bloemfontein, Free State)
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(ThemeIndigo)
+                    .padding(18.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(21.dp))
+                                .background(ThemeGold),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "👩🏽‍💻", fontSize = 20.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
                             Text(
-                                text = Localization.translate("founder_story", langCode),
+                                text = "Nokwazi Nobuhle Xaba",
                                 color = ThemeGold,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Black
                             )
+                            Text(
+                                text = "Founder • IT & Computer Science Student • Bloemfontein 🇿🇦",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = Localization.translate("founder_desc", langCode),
-                            color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp
-                        )
                     }
-                }
-            }
 
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(ThemeIndigo.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Origin Badges
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
                     ) {
-                        Text(
-                            text = Localization.translate("created_by", langCode),
-                            color = ThemeIndigo,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.15f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(text = "🎓 IT & Comp Sci", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.15f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(text = "📍 Bloemfontein", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ThemeGold.copy(alpha = 0.3f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(text = "🇿🇦 12 Official Languages", color = ThemeGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
+
+                    Text(
+                        text = Localization.translate("founder_desc", langCode),
+                        color = Color.White.copy(alpha = 0.92f),
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
                 }
             }
-        } else if (activeSubSection == "pathways") {
-            // Interactive 10 Career Pathways Grid and assessments
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = Localization.translate("pathways_title", langCode),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        color = ThemeIndigo
-                    )
-                    Text(
-                        text = Localization.translate("pathways_desc", langCode),
-                        fontSize = 11.sp,
-                        color = Color.Gray,
-                        lineHeight = 15.sp
-                    )
+        }
 
-                    // Search input
-                    OutlinedTextField(
-                        value = pathwaysSearchQuery,
-                        onValueChange = { 
-                            pathwaysSearchQuery = it
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(Localization.translate("search_pathways", langCode), fontSize = 12.sp) },
-                        leadingIcon = { Icon(Icons.Default.Search, null, tint = ThemeIndigo, modifier = Modifier.size(18.dp)) },
-                        shape = RoundedCornerShape(16.dp),
-                        singleLine = true
-                    )
 
-                    // ⚡ Do All Pathways (Auto-Complete Action Button)
-                    val coroutineScope = rememberCoroutineScope()
+        // 8.5 INTERACTIVE FEATURE TOUR & PLAY STORE SHOWCASE
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable { onOpenShowcase() },
+                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                border = BorderStroke(1.5.dp, ThemeGold.copy(alpha = 0.8f))
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ThemeGold),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "📸", fontSize = 20.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Play Store Feature Tour",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = colors.textPrimary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(ThemeGold.copy(alpha = 0.2f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "6 SLIDES",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ThemeGold
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Take a visual walk-through of all platform pillars & offline tools",
+                                fontSize = 11.sp,
+                                color = colors.textSecondary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Button(
-                        onClick = {
-                            // 1. Check all checklist items for all 10 pathways
-                            repeat(10) { pIdx ->
-                                repeat(5) { cIdx ->
-                                    pathwayChecklistState["${pIdx}_${cIdx}"] = true
-                                }
-                                // 2. Select correct quiz answer for all 10 pathways
-                                pathwayQuizAnswers[pIdx] = allPathways[pIdx].correctAnswerIndex
-                            }
-                            
-                            // 3. Update database XP (+1500 XP) and Streak (+10)
-                            coroutineScope.launch {
-                                try {
-                                    val db = com.example.data.AppDatabase.getDatabase(context)
-                                    db.userDao().updateXpAndStreak(xpGained = 1500, newStreak = 10)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                            // 4. Toast and Trigger Certificate Dialogue
-                            android.widget.Toast.makeText(
-                                context,
-                                "🎉 Halala! You successfully completed all 10 Professional Career Pathways! +1500 XP Gained!",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
-                            showCertificateDialog = true
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ThemeGold,
-                            contentColor = ThemeDarkBg
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
+                        onClick = onOpenShowcase,
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Star,
+                            imageVector = Icons.Default.AutoAwesome,
                             contentDescription = null,
-                            tint = ThemeDarkBg,
+                            tint = Color(0xFF26053D),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = Localization.translate("do_all_pathways", langCode),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black
+                            text = "Explore Platform Showcase",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF26053D),
+                            fontSize = 13.sp
                         )
                     }
-
-                    val filteredPathways = allPathways.filter {
-                        it.title.lowercase().contains(pathwaysSearchQuery.lowercase())
-                    }
-
-                    if (filteredPathways.isEmpty()) {
-                        Text(Localization.translate("no_pathways_found", langCode), fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(8.dp))
-                    }
-
-                    filteredPathways.forEach { path ->
-                        val originalPathIndex = allPathways.indexOf(path)
-                        val isExpanded = selectedPathIndex == originalPathIndex
-
-                        // Progress Calculation
-                        val checkedItemsCount = (0..4).count { cIdx -> pathwayChecklistState["${originalPathIndex}_${cIdx}"] ?: false }
-                        val isQuizCorrect = pathwayQuizAnswers[originalPathIndex] == path.correctAnswerIndex
-                        val progressPct = ((checkedItemsCount + (if (isQuizCorrect) 1 else 0)) * 100) / 6
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.White)
-                                .border(
-                                    width = if (isExpanded) 2.dp else 1.dp,
-                                    color = if (isExpanded) ThemeIndigo else ThemeCardBorder,
-                                    shape = RoundedCornerShape(20.dp)
-                                )
-                                .clickable {
-                                    selectedPathIndex = originalPathIndex
-                                }
-                                .padding(16.dp)
-                        ) {
-                            Column {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .clip(RoundedCornerShape(18.dp))
-                                                .background(if (progressPct == 100) Color(0xFFE6F4EA) else ThemeIndigo.copy(alpha = 0.08f)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(text = if (progressPct == 100) "🏆" else "🛣️", fontSize = 16.sp)
-                                        }
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                text = path.title,
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 14.sp,
-                                                color = ThemeIndigo
-                                            )
-                                            Text(
-                                                text = "Completed: $progressPct%",
-                                                fontSize = 11.sp,
-                                                color = if (progressPct == 100) Color(0xFF137333) else Color.Gray,
-                                                fontWeight = if (progressPct == 100) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        }
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (progressPct == 100) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color(0xFFE6F4EA))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    text = "MASTERED",
-                                                    fontSize = 8.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    color = Color(0xFF137333)
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                        }
-                                        Icon(
-                                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                            contentDescription = "Expand info",
-                                            tint = ThemeIndigo,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-
-                                if (isExpanded) {
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Text(
-                                        text = "💼 SOUTH AFRICAN REALITY & SALARY",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 9.sp,
-                                        color = ThemeGold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Est. Starting: ${path.salary}\nPriority Townships/Hubs: ${path.cities}",
-                                        fontSize = 11.sp,
-                                        color = Color.DarkGray,
-                                        lineHeight = 15.sp
-                                    )
-
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Text(
-                                        text = "🗺️ INTERACTIVE LEARNING ROADMAP",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 9.sp,
-                                        color = ThemeIndigo
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    path.roadmap.forEachIndexed { rIdx, step ->
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(vertical = 2.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(16.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(0xFFE2E8F0)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(text = "✓", fontSize = 9.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(text = step, fontSize = 11.sp, color = Color.DarkGray)
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Text(
-                                        text = "🏆 CAPSTONE PORTFOLIO PROJECT",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 9.sp,
-                                        color = ThemeIndigo
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = path.capstone,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black
-                                    )
-
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Text(
-                                        text = "⚡ PATHWAY DIAGNOSTIC ASSESSMENT",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 9.sp,
-                                        color = ThemeIndigo
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = path.quizQuestion, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    val selectedQuizAnswer = pathwayQuizAnswers[originalPathIndex]
-                                    val quizAnswerFeedback = if (selectedQuizAnswer != null) {
-                                        if (selectedQuizAnswer == path.correctAnswerIndex) {
-                                            path.explanation
-                                        } else {
-                                            "Incorrect choice! Reflect on standard local coding processes and select again."
-                                        }
-                                    } else ""
-
-                                    // Interactive Quiz Choices Custom Buttons
-                                    path.quizOptions.forEachIndexed { oIdx, option ->
-                                        val isSelectedChoice = selectedQuizAnswer == oIdx
-                                        val quizButtonBgColor = if (isSelectedChoice) {
-                                            if (oIdx == path.correctAnswerIndex) Color(0xFFE6F4EA) else Color(0xFFFCE8E6)
-                                        } else Color.White
-                                        val quizBorderColor = if (isSelectedChoice) {
-                                            if (oIdx == path.correctAnswerIndex) Color(0xFF137333) else Color(0xFFC5221F)
-                                        } else Color.LightGray
-
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(quizButtonBgColor)
-                                                .border(1.dp, quizBorderColor, RoundedCornerShape(10.dp))
-                                                .clickable {
-                                                    pathwayQuizAnswers[originalPathIndex] = oIdx
-                                                }
-                                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                                        ) {
-                                            Text(text = option, fontSize = 11.sp, color = Color.Black)
-                                        }
-                                    }
-
-                                    if (selectedQuizAnswer != null) {
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(ThemeIndigo.copy(alpha = 0.05f))
-                                                .padding(8.dp)
-                                        ) {
-                                            Text(
-                                                text = quizAnswerFeedback,
-                                                fontSize = 11.sp,
-                                                color = ThemeIndigo,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Text(
-                                        text = "📋 ROADMAP PREPARATION CHECKLIST",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 9.sp,
-                                        color = ThemeIndigo
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    val localChecklistItems = listOf(
-                                        "Simulated South African CV prepared on mentorship module",
-                                        "3 local Github repositories hosting standard markup files",
-                                        "Simulated counselor 1-on-1 scheduled (Premium Career)",
-                                        "Tested bakery order and crop forecast compilers offline",
-                                        "Assigned technical mock reviews on Cape Town technical forum"
-                                    )
-                                    localChecklistItems.forEachIndexed { cIdx, elementLabel ->
-                                        val isChecked = pathwayChecklistState["${originalPathIndex}_${cIdx}"] ?: false
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { 
-                                                    pathwayChecklistState["${originalPathIndex}_${cIdx}"] = !isChecked 
-                                                }
-                                                .padding(vertical = 4.dp)
-                                        ) {
-                                            // Custom designed Checkbox
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(18.dp)
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(if (isChecked) ThemeIndigo else Color.Transparent)
-                                                    .border(1.5.dp, if (isChecked) ThemeIndigo else Color.LightGray, RoundedCornerShape(4.dp)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                if (isChecked) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = null,
-                                                        tint = Color.White,
-                                                        modifier = Modifier.size(12.dp)
-                                                    )
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.width(10.dp))
-                                            Text(
-                                                text = elementLabel,
-                                                fontSize = 11.sp,
-                                                color = if (isChecked) ThemeIndigo else Color.DarkGray,
-                                                fontWeight = if (isChecked) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
-        } else if (activeSubSection == "parent") {
-            // Parent & Guardian dashboard portal
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(ThemeIndigo)
-                            .padding(20.dp)
-                    ) {
-                        Column {
-                            Text(
-                                text = "Molo, ${parentName}! 👥",
-                                color = ThemeGold,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Reviewing Naledi's progress, digital safety filters, and township learning resources.",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
+        }
 
-                    // Student Progress Quick Report Card
-                    Text(
-                        text = "📈 Child Learning Report & Speed",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Color.Black
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text("Nokwazi Naledi", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text("Grade 10 • Bloemfontein Tech Hub", fontSize = 11.sp, color = Color.Gray)
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(ThemeIndigo.copy(alpha = 0.1f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text("LEVEL 3", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = ThemeIndigo)
-                                }
-                            }
-
-                            Divider(color = Color.LightGray.copy(alpha = 0.5f))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text("STREAK", fontSize = 9.sp, color = Color.Gray)
-                                    Text("${userProfile?.streak ?: 5} Days Active", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
-                                }
-                                Column {
-                                    Text("XP POINTS", fontSize = 9.sp, color = Color.Gray)
-                                    Text("${userProfile?.xp ?: 180} XP", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
-                                }
-                                Column {
-                                    Text("COMPLETED", fontSize = 9.sp, color = Color.Gray)
-                                    val completedCount = maxOf(0, lessons.count { it.isUnlocked } - 1)
-                                    Text("$completedCount / ${lessons.size} Lessons", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
-                                }
-                            }
-                        }
-                    }
-
-                    // Interactive Goals Setting
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("Set Student Study Goal", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Text("Current allocation: $studyGoalTime", fontSize = 11.sp, color = Color.Gray)
-                                }
-                                Button(
-                                    onClick = { showGoalSettings = !showGoalSettings },
-                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
-                                    Text("Change", fontSize = 10.sp)
-                                }
-                            }
-
-                            if (showGoalSettings) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    val goalOptions = listOf("30m / Day", "1 Hour / Day", "1.5 Hours / Day", "2 Hours / Day")
-                                    goalOptions.forEach { opt ->
-                                        val isSel = studyGoalTime == opt
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (isSel) ThemeIndigo else Color.LightGray.copy(alpha = 0.2f))
-                                                .clickable {
-                                                    studyGoalTime = opt
-                                                    showGoalSettings = false
-                                                    android.widget.Toast.makeText(context, "Naledi's study goal updated to $opt!", android.widget.Toast.LENGTH_SHORT).show()
-                                                }
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(text = opt, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (isSel) Color.White else Color.Black)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Digital Literacy & Offline support
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFFF9F5FF))
-                            .border(1.dp, ThemeIndigo.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("📖 Guardian Digital Literacy & Offline Guide", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = ThemeIndigo)
-                            Text(
-                                text = "• What is Coding? Coding is writing instructions for computers. It fosters high-paying jobs in South Africa without requiring traditional high cost hardware.",
-                                fontSize = 11.sp,
-                                color = Color.DarkGray,
-                                lineHeight = 15.sp
-                            )
-                            Text(
-                                text = "• Supporting Offline Study: Download lessons locally inside Bloemfontein Hub, and study at home without cellular billing or signal interruptions.",
-                                fontSize = 11.sp,
-                                color = Color.DarkGray,
-                                lineHeight = 15.sp
-                            )
-                            Text(
-                                text = "• Safety & Security: Our online forums use filtered moderation models to prevent cyberbullying or unsafe tech contact.",
-                                fontSize = 11.sp,
-                                color = Color.DarkGray,
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
-
-                    // Safety Toggles
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("🔒 Guard & Safety Configurations", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("Safe Search Moderation Filter", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text("Blocks unapproved community topics", fontSize = 10.sp, color = Color.Gray)
-                                }
-                                Switch(
-                                    checked = isSafeSearchEnabled,
-                                    onCheckedChange = { isSafeSearchEnabled = it },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = ThemeIndigo)
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("Verified Community Circles Only", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text("Verifies peers using regional student IDs", fontSize = 10.sp, color = Color.Gray)
-                                }
-                                Switch(
-                                    checked = isCommunityCirclesOnly,
-                                    onCheckedChange = { isCommunityCirclesOnly = it },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = ThemeIndigo)
-                                )
-                            }
-                        }
-                    }
-
-                    // Help line contacts
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFFEF7E0))
-                            .padding(10.dp)
-                    ) {
-                        Column {
-                            Text("🚨 National Emergency Support Services", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB06000))
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("• South African Child Safety Line: 0800 055 555\n• Township Digital Trust Helpline: Telephonic routing 112", fontSize = 10.sp, color = Color.DarkGray)
-                        }
-                    }
-                }
-            }
-        } else if (activeSubSection == "school") {
-            // Schools & Community / Teacher dashboard
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Color(0xFFF3E8FF))
-                            .border(1.dp, ThemeIndigo.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
-                            .padding(20.dp)
-                    ) {
-                        Column {
-                            Text(
-                                text = "🏫 School & Classroom Hub",
-                                color = ThemeIndigo,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Teacher Account: logged in as Mrs. Dlamini (Bloemfontein High School). Tracking Grade 10-A ICT curriculum performance metrics.",
-                                color = Color.DarkGray,
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-
-                    // Class Status KPI
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+        // 8.6 TESTERS FEEDBACK & RATE APP CARD
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp)),
+                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                border = BorderStroke(1.dp, colors.cardBorder)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color.White)
-                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(14.dp))
-                                .padding(10.dp)
-                        ) {
-                            Column {
-                                Text("STUDENTS", fontSize = 8.sp, color = Color.Gray)
-                                Text("${simulatedClassStudents.size} Registered", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color.White)
-                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(14.dp))
-                                .padding(10.dp)
-                        ) {
-                            Column {
-                                Text("COMPLETIONS", fontSize = 8.sp, color = Color.Gray)
-                                Text("89% Average", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color.White)
-                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(14.dp))
-                                .padding(10.dp)
-                        ) {
-                            Column {
-                                Text("AVERAGE STREAK", fontSize = 8.sp, color = Color.Gray)
-                                Text("4.6 Days", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    // Teacher Actions: Manual Invite
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("📝 Add / Invite Student to Classroom Group", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-
-                            val isPhoneFormatValid = inviteStudentPhone.trim().length == 10 && inviteStudentPhone.all { it.isDigit() }
-                            val isNameFormatValid = inviteStudentName.trim().isNotEmpty() && inviteStudentName.all { it.isLetter() || it.isWhitespace() }
-                            val isInviteFormValid = isPhoneFormatValid && isNameFormatValid
-
-                            OutlinedTextField(
-                                value = inviteStudentName,
-                                onValueChange = { inviteStudentName = it.take(50) },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Student Full Name (e.g. Sipho)") },
-                                singleLine = true,
-                                isError = inviteStudentName.isNotEmpty() && !isNameFormatValid,
-                                supportingText = {
-                                    if (inviteStudentName.isNotEmpty() && !isNameFormatValid) {
-                                        Text("Please enter letters only.", color = Color.Red, fontSize = 10.sp)
-                                    }
-                                }
-                            )
-
-                            OutlinedTextField(
-                                value = inviteStudentPhone,
-                                onValueChange = { input ->
-                                    if (input.all { it.isDigit() }) {
-                                        inviteStudentPhone = input.take(12)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Cell Number (e.g. 0723456789)") },
-                                singleLine = true,
-                                isError = inviteStudentPhone.isNotEmpty() && !isPhoneFormatValid,
-                                supportingText = {
-                                    if (inviteStudentPhone.isNotEmpty() && !isPhoneFormatValid) {
-                                        Text("Enter a valid 10-digit South African number.", color = Color.Red, fontSize = 10.sp)
-                                    }
-                                }
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        if (isInviteFormValid) {
-                                            simulatedClassStudents.add(Triple(inviteStudentName, "0 XP", "Rookie"))
-                                            android.widget.Toast.makeText(context, "Invite link sent to $inviteStudentPhone! Student added to classroom roster.", android.widget.Toast.LENGTH_LONG).show()
-                                            inviteStudentName = ""
-                                            inviteStudentPhone = ""
-                                        }
-                                    },
-                                    enabled = isInviteFormValid,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = ThemeIndigo,
-                                        disabledContainerColor = Color.LightGray
-                                    ),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Invite Student", fontSize = 11.sp, color = if (isInviteFormValid) Color.White else Color.DarkGray)
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        // Bulk Import simulation
-                                        simulatedClassStudents.add(Triple("Gontse Morake", "310 XP", "Lesson 3"))
-                                        simulatedClassStudents.add(Triple("Lefa Modise", "150 XP", "Lesson 1"))
-                                        simulatedClassStudents.add(Triple("Amogelang Seola", "80 XP", "Lesson 1"))
-                                        android.widget.Toast.makeText(context, "Parsed bulk-students-list.csv! Imported 3 students instantly.", android.widget.Toast.LENGTH_SHORT).show()
-                                    },
-                                    border = BorderStroke(1.dp, Color.LightGray),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Import CSV List", fontSize = 11.sp, color = Color.Gray)
-                                }
-                            }
-                        }
-                    }
-
-                    // Classroom Student List Table
-                    Text(
-                        text = "📋 Classroom Student Directory",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Color.Black
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(12.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Student Name", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.Gray)
-                                Row {
-                                    Text("Score XP", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.width(60.dp))
-                                    Text("Step", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.width(70.dp))
-                                }
-                            }
-
-                            Divider(color = Color.LightGray.copy(alpha = 0.4f))
-
-                            simulatedClassStudents.forEach { (name, score, step) ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(name, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
-                                    Row {
-                                        Text(score, fontSize = 12.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp))
-                                        Text(step, fontSize = 11.sp, color = Color.DarkGray, modifier = Modifier.width(70.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Active Coding Clubs & NGO Partners Group
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("🤝 Community Fellowships & NGO Partners", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            Text("• Bloemfontein High School Tech Club • Supported by SA Mobile Alliance", fontSize = 11.sp, color = Color.DarkGray)
-                            Text("• Gugulethu Coding Queens Hub • Supported by Soweto Dev NGO", fontSize = 11.sp, color = Color.DarkGray)
-                            Text("• Mitchells Plain Coding Sisters • Supported by Youth Uplifting Network", fontSize = 11.sp, color = Color.DarkGray)
-                        }
-                    }
-                }
-            }
-        } else if (activeSubSection == "analytics") {
-            // Live platform performance metrics
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(
-                        text = "📊 Live Hub Performance Metrics",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        color = ThemeIndigo
-                    )
-
-                    // Large Score Panels
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color.White)
-                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Text("DAILY USERS (DAU)", fontSize = 8.sp, color = Color.Gray)
-                                Text("1,520", fontSize = 18.sp, fontWeight = FontWeight.Black, color = ThemeIndigo)
-                                Text("+12% from yesterday", fontSize = 9.sp, color = Color(0xFF137333))
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color.White)
-                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Text("MONTHLY ACTIVE (MAU)", fontSize = 8.sp, color = Color.Gray)
-                                Text("35,200", fontSize = 18.sp, fontWeight = FontWeight.Black, color = ThemeIndigo)
-                                Text("3.4k first-generation", fontSize = 9.sp, color = Color(0xFF137333))
-                            }
-                        }
-                    }
-
-                    // Gorgeous custom graphics monitor drawn with canvas
-                    Text(
-                        text = "📈 Monthly Platform Active Student Growth Curve",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(16.dp)
-                    ) {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Active Students Syncing Offline (Thousands)", fontSize = 9.sp, color = Color.Gray)
-                                Text("Dec '25 - June '26", fontSize = 9.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Custom Graphic Canvas
-                            Canvas(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(130.dp)
-                            ) {
-                                val canvasWidth = size.width
-                                val canvasHeight = size.height
-
-                                // Draw grids
-                                for (i in 0..3) {
-                                    val yOffset = canvasHeight * i / 3f
-                                    drawLine(
-                                        color = Color.LightGray.copy(alpha = 0.35f),
-                                        start = androidx.compose.ui.geometry.Offset(0f, yOffset),
-                                        end = androidx.compose.ui.geometry.Offset(canvasWidth, yOffset),
-                                        strokeWidth = 1f
-                                    )
-                                }
-
-                                // Monthly values data representations
-                                val monthlyValues = listOf(0.12f, 0.28f, 0.35f, 0.54f, 0.72f, 0.95f)
-                                val coordinatesList = monthlyValues.mapIndexed { index, value ->
-                                    val x = canvasWidth * index / (monthlyValues.size - 1)
-                                    val y = canvasHeight * (1f - value)
-                                    androidx.compose.ui.geometry.Offset(x, y)
-                                }
-
-                                // Connect line points
-                                for (i in 0 until coordinatesList.size - 1) {
-                                    drawLine(
-                                        color = ThemeIndigo,
-                                        start = coordinatesList[i],
-                                        end = coordinatesList[i + 1],
-                                        strokeWidth = 4f
-                                    )
-                                }
-
-                                // Draw anchor dots Represent gold accents
-                                coordinatesList.forEach { point ->
-                                    drawCircle(
-                                        color = ThemeGold,
-                                        radius = 6f,
-                                        center = point
-                                    )
-                                    drawCircle(
-                                        color = ThemeIndigo,
-                                        radius = 3.5f,
-                                        center = point
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                val monthLabels = listOf("Jan", "Feb", "Mar", "Apr", "May", "June")
-                                monthLabels.forEach { m ->
-                                    Text(text = m, fontSize = 8.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-
-                    // Subscriptions Breakdown chart view
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("📊 Conversion & Career Interest Share", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-
-                            // Pathway bar 1: Web Dev interest share group
-                            Column {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Web & Frontend Development", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    Text("44% share", fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Box(modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color.LightGray.copy(alpha = 0.3f))) {
-                                    Box(modifier = Modifier.fillMaxWidth(0.44f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(ThemeIndigo))
-                                }
-                            }
-
-                            // Pathway bar 2: Mobile App Dev share group
-                            Column {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Mobile Dev & Kotlin compilers", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    Text("32% share", fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Box(modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color.LightGray.copy(alpha = 0.3f))) {
-                                    Box(modifier = Modifier.fillMaxWidth(0.32f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(ThemeIndigo))
-                                }
-                            }
-
-                            // Pathway bar 3: Digital Entrepreneurs
-                            Column {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Digital Entrepreneurship & SMEs", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    Text("24% share", fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Box(modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color.LightGray.copy(alpha = 0.3f))) {
-                                    Box(modifier = Modifier.fillMaxWidth(0.24f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(ThemeIndigo))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else if (activeSubSection == "viral") {
-            // Ambassador & Referral space
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Brush.horizontalGradient(listOf(ThemeIndigo, ThemeIndigo.copy(alpha = 0.85f))))
-                            .padding(20.dp)
-                    ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(ThemeGold),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("📣", fontSize = 12.sp)
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Ambassador Referral Hub & Codes",
-                                    color = ThemeGold,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Earn specialized badges, physical rewards, and free Premium access by inviting township peers to code offline alongside your group.",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-
-                    // Share Refer Link Box
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("🔗 Your Unique Referral Account parameters", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            Text("Share this referral code or direct SMS link below to track metrics instantly", fontSize = 11.sp, color = Color.Gray)
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF9F5FF))
-                                    .border(1.dp, ThemeIndigo.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-                                    .padding(12.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = generatedReferralCode,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 14.sp,
-                                        color = ThemeIndigo
-                                    )
-                                    Button(
-                                        onClick = {
-                                            android.widget.Toast.makeText(context, "Referral Code Copied to clipboard! Share on WhatsApp Lite.", android.widget.Toast.LENGTH_SHORT).show()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
-                                        Text("Copy Key", fontSize = 10.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Ambassador progression tracker simulator
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("🏅 Ambassador Rank Progress", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text("$simulatedInvitesCount / 8 Referrals", fontSize = 11.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            // Custom progress metric bar
-                            val progressionPct = simulatedInvitesCount / 8f
-                            Box(modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(Color.LightGray.copy(alpha = 0.3f))) {
-                                Box(modifier = Modifier.fillMaxWidth(progressionPct).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(ThemeIndigo))
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("• Rank: " + (if (simulatedInvitesCount < 3) "Township Rookie Coder" else if (simulatedInvitesCount < 6) "Community Tech Beacon" else "Gauteng/Bloem Tech Ambassador Champion 👑"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                            Text("• Next Reward: " + (if (simulatedInvitesCount < 3) "Invite 1 more friend to unlock Free static hosting web guide!" else "Get 3 more references to claim a physical KodeMamas Cape Town Hub cap!"), fontSize = 10.sp, color = Color.Gray)
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // SUCCESS INVITE SIMULATOR
-                            Button(
-                                onClick = {
-                                    if (simulatedInvitesCount < 8) {
-                                        simulatedInvitesCount++
-                                        android.widget.Toast.makeText(context, "Ref code MAMA-7842 used! Sipho Khumalo successfully registered. You earned +50 XP!", android.widget.Toast.LENGTH_LONG).show()
-                                    } else {
-                                        android.widget.Toast.makeText(context, "Maximum level reached! You are already a Township Hub President!", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(vertical = 10.dp)
-                            ) {
-                                Text("Simulate WhatsApp Invite Success 📣 (+50 XP)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                            }
-                        }
-                    }
-
-                    // Visual Social proof card layout preview for whatsapp
-                    Text(
-                        text = "📱 WhatsApp / Facebook Lite Achievement Card Preview",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(ThemeDarkBg)
-                            .padding(16.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                            Text("KODEMAMAS CHAMPION CARD", fontSize = 8.sp, fontWeight = FontWeight.Black, color = ThemeGold)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(54.dp)
-                                    .clip(CircleShape)
-                                    .background(ThemeIndigo),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("👩‍🎓", fontSize = 28.sp)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Naledi Nobuhle Xaba", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.White)
-                            Text("Tech Apprentice • Stream Level 3", fontSize = 11.sp, color = ThemeGold)
-                            Spacer(modifier = Modifier.height(10.dp))
-                            val completedCount = maxOf(0, lessons.count { it.isUnlocked } - 1)
-                            Text(
-                                "Finished $completedCount/${lessons.size} Local Coding compilers modules. Studying offline-first configurations at Bloemfontein Hub!",
-                                fontSize = 10.sp,
-                                color = Color.White.copy(alpha = 0.8f),
-                                textAlign = TextAlign.Center,
-                                lineHeight = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        showSharingSimulationResult = true
-                                        selectedSharingPlatform = "WhatsApp Lite"
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("WhatsApp", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                                Button(
-                                    onClick = {
-                                        showSharingSimulationResult = true
-                                        selectedSharingPlatform = "Facebook Lite"
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Facebook", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-
-                    if (showSharingSimulationResult) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
+                                .size(40.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFE6F4EA))
-                                .border(1.dp, Color(0xFF137333), RoundedCornerShape(12.dp))
-                                .padding(12.dp)
+                                .background(Color(0xFFFFB300).copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Achievement Card successfully posted to $selectedSharingPlatform!", fontSize = 11.sp, color = Color(0xFF137333), fontWeight = FontWeight.Bold)
-                                Button(
-                                    onClick = { showSharingSimulationResult = false },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF137333)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text("Done", fontSize = 9.sp)
-                                }
-                            }
+                            Text(text = "⭐", fontSize = 20.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Rate KodeMamas on Google Play",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = colors.textPrimary
+                            )
+                            Text(
+                                text = "Your reviews help bring free coding to township schools",
+                                fontSize = 11.sp,
+                                color = colors.textSecondary
+                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = onOpenRateDialog,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Rate App", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        OutlinedButton(
+                            onClick = onOpenFeedbackDialog,
+                            border = BorderStroke(1.dp, ThemeGold),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Feedback,
+                                contentDescription = null,
+                                tint = ThemeGold,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Feedback", fontWeight = FontWeight.Bold, color = ThemeGold, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 8.7 LEGAL & COMPLIANCE (POPIA / TERMS / SETTINGS)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp)),
+                colors = CardDefaults.cardColors(containerColor = colors.surface.copy(alpha = 0.6f)),
+                border = BorderStroke(1.dp, colors.cardBorder)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Compliance & Transparency",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.textSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = onOpenPrivacyPolicy) {
+                            Text("🔒 Privacy Policy", fontSize = 11.sp, color = ThemeGold, fontWeight = FontWeight.SemiBold)
+                        }
+                        Text("•", color = colors.textSecondary, fontSize = 12.sp)
+                        TextButton(onClick = onOpenTermsOfService) {
+                            Text("📜 Terms of Service", fontSize = 11.sp, color = ThemeGold, fontWeight = FontWeight.SemiBold)
+                        }
+                        Text("•", color = colors.textSecondary, fontSize = 12.sp)
+                        TextButton(onClick = onOpenSettings) {
+                            Text("⚙️ Settings", fontSize = 11.sp, color = ThemeGold, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 9. FOOTER CREATOR CREDIT
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(ThemeIndigo.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "KodeMamas • Created by Nokwazi Nobuhle Xaba\nEmpowering South African Communities",
+                        color = if (colors.isDark) Color.White.copy(alpha = 0.85f) else ThemeIndigo,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
                 }
             }
         }
@@ -2611,19 +1912,8 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    val completedPathwaysCount = (0..9).count { pIdx ->
-                        val hasAllChecked = (0..4).all { cIdx -> pathwayChecklistState["${pIdx}_${cIdx}"] == true }
-                        val isQuizDone = pathwayQuizAnswers[pIdx] == allPathways[pIdx].correctAnswerIndex
-                        hasAllChecked && isQuizDone
-                    }
-                    val certificateText = if (completedPathwaysCount == 10) {
-                        "This marks that Student Naledi has successfully mastered all 10 Professional Tech Career Pathways on KodeMamas with complete assessment and project portfolio checks!"
-                    } else {
-                        "This marks that Student NALEDI has completed digital catalog initialization layout using offline-first HTML and CSS compilers."
-                    }
-
                     Text(
-                        text = certificateText,
+                        text = "This marks that Student NALEDI has completed digital catalog initialization layout using offline-first HTML and CSS compilers.",
                         fontSize = 12.sp,
                         color = Color.DarkGray,
                         textAlign = TextAlign.Center,
@@ -2644,1613 +1934,6 @@ fun DashboardTab(viewModel: MainViewModel, langCode: String, onShowOnboarding: (
     }
 }
 
-// ---------------------- COMPONENT: SOUTH AFRICAN LANGUAGE HUB ----------------------
-@Composable
-fun SouthAfricanLanguageHub(
-    currentLangCode: String,
-    onLangSelected: (String) -> Unit,
-    onShowAllLanguages: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("sa_language_hub_card"),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, ThemeCardBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(ThemeIndigo.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "🇿🇦", fontSize = 16.sp)
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = Localization.translate("in_your_language", currentLangCode),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = ThemeIndigo
-                        )
-                        Text(
-                            text = Localization.translate("choose_lang_sub", currentLangCode),
-                            fontSize = 11.sp,
-                            color = Color.Gray
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Localization.languages.forEach { lang ->
-                    val isSelected = currentLangCode == lang.code
-                    Box(
-                        modifier = Modifier
-                            .width(100.dp)
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) ThemeIndigo else Color.White)
-                            .border(1.dp, if (isSelected) ThemeIndigo else ThemeCardBorder, RoundedCornerShape(12.dp))
-                            .clickable { onLangSelected(lang.code) }
-                            .testTag("lang_toggle_${lang.code}"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Text(
-                                text = lang.localName,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                color = if (isSelected) Color.White else Color.Black,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = lang.displayName,
-                                fontSize = 8.sp,
-                                color = if (isSelected) ThemeGold else Color.Gray,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                // More button
-                Box(
-                    modifier = Modifier
-                        .width(110.dp)
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White)
-                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(12.dp))
-                        .clickable { onShowAllLanguages() }
-                        .testTag("lang_toggle_more"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Text(
-                            text = "List Picker",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = ThemeIndigo,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Show All 12 🇿🇦",
-                            fontSize = 8.sp,
-                            color = Color.Gray,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ---------------------- PASSPORT, PORTFOLIO & SCHOOL HUB COMPOSABLES ----------------------
-@Composable
-fun PassportAndPortfolioView(langCode: String) {
-    var showShareSnackbar by remember { mutableStateOf(false) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // LIVING RECORD OF EVIDENCE: PASSPORT CARD
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E0638)),
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(ThemeGold)
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text("VERIFIED PASSPORT 🇿🇦", color = Color(0xFF2E0A4E), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-                    Text("ID: KM-2026-8834", color = ThemeGoldLight, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                            .background(ThemeGold),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("👩‍💻", fontSize = 28.sp)
-                    }
-
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    Column {
-                        Text("Nokwazi Nobuhle Xaba", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                        Text("KodeMamas Junior Technology Builder", color = ThemeGoldLight, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Bloemfontein Central High • Grade 11", color = Color.LightGray, fontSize = 10.sp)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = Localization.translate("evidence_record", langCode).uppercase(),
-                    color = ThemeGold,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.5.sp
-                )
-
-                Text(
-                    text = "This living record of evidence is infinitely more meaningful than a paper course certificate.",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-                )
-
-                // Grid of metrics:
-                val metrics = listOf(
-                    Triple("📁 Projects", "6", "Full-stack builds"),
-                    Triple("🔎 Problems Investigated", "4", "Field research cards"),
-                    Triple("🚀 Prototypes", "5", "Working web apps"),
-                    Triple("⚡ Skills Demonstrated", "17", "Verified badges"),
-                    Triple("🗣️ Users Interviewed", "23", "Community members"),
-                    Triple("🧪 Projects Tested", "4", "User testing rounds"),
-                    Triple("🤝 Team Projects", "2", "Collaborative builds")
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    metrics.forEach { (label, count, subtext) ->
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color.White.copy(alpha = 0.1f))
-                                .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Text(count, color = ThemeGold, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                                Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text(subtext, color = Color.LightGray, fontSize = 9.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // AUTO-GENERATED PORTFOLIO SECTION
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "AUTO-GENERATED PORTFOLIO",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF2E0A4E)
-                )
-                Text(
-                    text = "Ready to share with parents, teachers, universities, & employers",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-            }
-
-            Button(
-                onClick = { showShareSnackbar = true },
-                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color(0xFF2E0A4E), modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Share Portfolio", color = Color(0xFF2E0A4E), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
-
-        if (showShareSnackbar) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFD1FAE5))
-                    .border(1.dp, Color(0xFF10B981), RoundedCornerShape(12.dp))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = "✓ Verifiable Portfolio Link Copied! Ready to submit to universities, scholarship programs, & employers.",
-                    color = Color(0xFF065F46),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // MY BUILD STRUCTURED PORTFOLIO CARDS
-        PortfolioBuildCard(
-            title = "School Announcement Board",
-            problem = "Students miss critical exam and assignment dates because paper notice boards are cluttered and outdated.",
-            research = "Interviewed 23 township high school students & 4 teachers in Bloemfontein.",
-            solution = "A lightweight mobile web announcement dashboard with offline caching.",
-            technologyUsed = "HTML5, CSS Flexbox, JavaScript ES6, LocalStorage, Progressive Web App",
-            whatBuilt = "Interactive notice posting feed with subject filtering and date countdowns.",
-            whatFailed = "Initial attempt used a heavy external database that loaded too slowly on low-data 3G.",
-            whatChanged = "Replaced external calls with client-side LocalStorage cache to protect student mobile data.",
-            whatLearned = "DOM manipulation, event delegation, responsive layouts, and data optimization.",
-            demoUrl = "https://kodemamas.app/builds/school-announcements",
-            githubUrl = "https://github.com/nokwazi/school-announcement-board"
-        )
-
-        PortfolioBuildCard(
-            title = "Spaza Shop Inventory Tracker",
-            problem = "Local township spaza shop owners lose track of expiring bread and dairy items.",
-            research = "Spent 3 days surveying 8 local shop owners in Mangaung.",
-            solution = "Color-coded stock tracker with automatic expiry alert warnings.",
-            technologyUsed = "JavaScript, CSS Grid, LocalStorage Data Persistence",
-            whatBuilt = "Visual inventory table with automated Rand profit total calculation.",
-            whatFailed = "Complex table design was hard to read on cheap low-resolution smartphones.",
-            whatChanged = "Redesigned into large touch cards with high-contrast text.",
-            whatLearned = "User testing with non-tech-savvy users and touch target sizing.",
-            demoUrl = "https://kodemamas.app/builds/spaza-tracker",
-            githubUrl = "https://github.com/nokwazi/spaza-inventory-tracker"
-        )
-    }
-}
-
-@Composable
-fun PortfolioBuildCard(
-    title: String,
-    problem: String,
-    research: String,
-    solution: String,
-    technologyUsed: String,
-    whatBuilt: String,
-    whatFailed: String,
-    whatChanged: String,
-    whatLearned: String,
-    demoUrl: String,
-    githubUrl: String
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, ThemeCardBorder),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = "MY BUILD: $title", fontWeight = FontWeight.Black, fontSize = 14.sp, color = ThemeIndigo)
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFDCFCE7))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text("Verified Build", color = Color(0xFF15803D), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Divider(color = Color(0xFFF3F4F6))
-
-            PortfolioDetailItem("📌 Problem Statement", problem, Color(0xFF991B1B))
-            PortfolioDetailItem("🔎 Field Research", research, Color(0xFF1E40AF))
-            PortfolioDetailItem("💡 Solution Concept", solution, Color(0xFF065F46))
-            PortfolioDetailItem("💻 Technology Used", technologyUsed, Color(0xFF6B21A8))
-            PortfolioDetailItem("🛠️ What I Built", whatBuilt, Color(0xFF1F2937))
-            PortfolioDetailItem("⚠️ What Failed", whatFailed, Color(0xFFB91C1C))
-            PortfolioDetailItem("🔧 What I Changed", whatChanged, Color(0xFFD97706))
-            PortfolioDetailItem("🧠 What I Learned", whatLearned, Color(0xFF047857))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFEEF2FF))
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🌐 Demo: $demoUrl", fontSize = 9.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
-                }
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFF3F4F6))
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("📦 GitHub: $githubUrl", fontSize = 9.sp, color = Color.DarkGray, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PortfolioDetailItem(label: String, detail: String, accentColor: Color) {
-    Column {
-        Text(text = label, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = accentColor)
-        Text(text = detail, fontSize = 11.sp, color = Color.DarkGray, lineHeight = 15.sp)
-    }
-}
-
-// Composable: KodeMamas School Hub (Teacher Dashboard View)
-@Composable
-fun SchoolHubView(langCode: String) {
-    var selectedClassroom by remember { mutableStateOf("Grade 10B - Bloemfontein High") }
-
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Teacher Dashboard Header Banner
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E0A4E)),
-            shape = RoundedCornerShape(22.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(ThemeGold)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text("KODEMAMAS SCHOOL HUB 🏫", color = Color(0xFF2E0A4E), fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-
-                    Text("Teacher Mode Active", color = ThemeGoldLight, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "TEACHER DASHBOARD",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black
-                )
-
-                Text(
-                    text = "Track learners, active problem builds, skill mastery, and AI intervention insights.",
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Classroom selector pills
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf("Grade 10B - Bloemfontein High", "Grade 11A - Mangaung Sec", "Grade 9C - Botshabelo Hub").forEach { cls ->
-                        val isSelected = selectedClassroom == cls
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) ThemeGold else Color.White.copy(alpha = 0.15f))
-                                .clickable { selectedClassroom = cls }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = cls,
-                                color = if (isSelected) Color(0xFF2E0A4E) else Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Classroom High-level Metrics Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            MetricPill("Learners", "34", "Active Builders", Color(0xFFEEF2FF), ThemeIndigo)
-            MetricPill("Projects", "12", "In Progress", Color(0xFFFEF3C7), Color(0xFFB45309))
-            MetricPill("Completion", "78%", "On Track", Color(0xFFD1FAE5), Color(0xFF065F46))
-            MetricPill("Skills", "142", "Mastered", Color(0xFFF3E8FF), Color(0xFF6B21A8))
-        }
-
-        // STRUGGLING CONCEPTS & CHALLENGES HEAT MAP
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, ThemeCardBorder),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "⚠️ " + Localization.translate("struggling_concepts", langCode).uppercase() + " & AI INTERVENTIONS",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    color = Color(0xFFB91C1C)
-                )
-                Text(
-                    text = "Real-time diagnostic of where learners hit bugs or roadblocks",
-                    fontSize = 10.sp,
-                    color = Color.Gray
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                StrugglingConceptItem(
-                    concept = "JavaScript Event Listeners (addEventListener)",
-                    strugglePercent = 42,
-                    affectCount = "14 / 34 learners struggling",
-                    aiSuggestion = "Assign 3-minute Tiny Learning Mission: 'Make Button Work' to Grade 10B."
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                StrugglingConceptItem(
-                    concept = "CSS Flexbox Center Alignment",
-                    strugglePercent = 25,
-                    affectCount = "8 / 34 learners struggling",
-                    aiSuggestion = "Recommend Spaza Shop Layout exercise with live preview."
-                )
-            }
-        }
-
-        // LEARNERS ROSTER & BUILD PROGRESS
-        Text(
-            text = "CLASSROOM LEARNER ROSTER ($selectedClassroom)",
-            fontWeight = FontWeight.Black,
-            fontSize = 12.sp,
-            color = Color(0xFF2E0A4E)
-        )
-
-        val learners = listOf(
-            Triple("Nokwazi Xaba", "School Announcement Board", "Stage 5: Test Passed (85% built)"),
-            Triple("Sipho Dlamini", "Water Outage SMS Alert", "Stage 4: Building JS Logic (60% built)"),
-            Triple("Thabo Mokoena", "Spaza Shop Stock Tracker", "Stage 6: User Testing (90% built)"),
-            Triple("Zinhle Ndlovu", "Local Language Quiz", "Stage 3: Design Wireframe (35% built)")
-        )
-
-        learners.forEach { (student, buildTitle, stage) ->
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, ThemeCardBorder),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(ThemeIndigo.copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(student.take(1), fontWeight = FontWeight.Bold, color = ThemeIndigo, fontSize = 14.sp)
-                        }
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Column {
-                            Text(student, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.DarkGray)
-                            Text(buildTitle, fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.SemiBold)
-                            Text(stage, fontSize = 9.sp, color = Color.Gray)
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFFAF5FF))
-                            .border(1.dp, Color(0xFFE9D5FF), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text("View Passport", color = Color(0xFF6B21A8), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun RowScope.MetricPill(title: String, value: String, subtext: String, bgColor: Color, textColor: Color) {
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .clip(RoundedCornerShape(14.dp))
-            .background(bgColor)
-            .padding(10.dp)
-    ) {
-        Column {
-            Text(value, fontSize = 16.sp, fontWeight = FontWeight.Black, color = textColor)
-            Text(title, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
-            Text(subtext, fontSize = 8.sp, color = Color.Gray)
-        }
-    }
-}
-
-@Composable
-fun StrugglingConceptItem(concept: String, strugglePercent: Int, affectCount: String, aiSuggestion: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFFEF2F2))
-            .border(1.dp, Color(0xFFFCA5A5), RoundedCornerShape(12.dp))
-            .padding(12.dp)
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(concept, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF991B1B))
-                Text("$strugglePercent% High Risk", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFDC2626))
-            }
-
-            Text(affectCount, fontSize = 9.sp, color = Color.DarkGray)
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White)
-                    .padding(8.dp)
-            ) {
-                Text("🤖 AI Intervention: $aiSuggestion", fontSize = 9.sp, color = Color(0xFF1E40AF), fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-// ---------------------- TAB: PROBLEM TO PROTOTYPE BUILDS ----------------------
-@Composable
-fun BuildsTab(viewModel: MainViewModel, langCode: String) {
-    val builds by viewModel.allBuilds.collectAsState()
-    var showProblemLab by remember { mutableStateOf(false) }
-    var selectedCategoryFilter by remember { mutableStateOf("all") }
-    var activeHintLevel by remember { mutableStateOf(0) } // 0=none, 1=hint1, 2=hint2, 3=hint3
-    var activeSubSection by remember { mutableStateOf("builds") } // "builds", "passport", "school_hub"
-
-    val intentCategories = listOf(
-        Triple("school", "🏫 Something for my school", "Announcements, assignment trackers"),
-        Triple("community", "🏘️ Something for my community", "Water outage alerts, safety board"),
-        Triple("idea", "💡 My own idea", "Custom problem card & build path"),
-        Triple("environment", "🌱 An environmental solution", "Recycling, solar crop tracker"),
-        Triple("business", "💼 A business idea", "Spaza shop stock, bakery order portal"),
-        Triple("ai", "🤖 Something with AI", "Local language study coach"),
-        Triple("fun", "🎮 Something fun", "Township quiz challenge game")
-    )
-
-    val filteredBuilds = if (selectedCategoryFilter == "all") builds else builds.filter { it.category == selectedCategoryFilter }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // TOP SUB-TAB TOGGLE: BUILDS | PASSPORT & PORTFOLIO | SCHOOL HUB
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
-                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                val subTabs = listOf(
-                    Triple("builds", "🛠️ Builds", Localization.translate("problem_lab", langCode)),
-                    Triple("passport", "📜 Passport", Localization.translate("passport", langCode)),
-                    Triple("school_hub", "🏫 School Hub", Localization.translate("school_hub", langCode))
-                )
-
-                subTabs.forEach { (tabId, label, subtext) ->
-                    val isSel = activeSubSection == tabId
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSel) ThemeIndigo else Color.Transparent)
-                            .clickable { activeSubSection = tabId }
-                            .padding(vertical = 10.dp, horizontal = 2.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = label,
-                                color = if (isSel) Color.White else Color.Black,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = subtext,
-                                color = if (isSel) ThemeGoldLight else Color.Gray,
-                                fontSize = 8.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (activeSubSection == "passport") {
-            item {
-                PassportAndPortfolioView(langCode = langCode)
-            }
-        } else if (activeSubSection == "school_hub") {
-            item {
-                SchoolHubView(langCode = langCode)
-            }
-        } else {
-            // Hero Header: TURN PROBLEMS INTO BUILDS
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(ThemeIndigo)
-                    .padding(20.dp)
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ThemeGold)
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "KODEMAMAS PLATFORM",
-                                color = Color(0xFF2E0A4E),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-
-                        Text(
-                            text = Localization.translate("problem_to_prototype", langCode),
-                            color = ThemeGoldLight,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = Localization.translate("turn_problems_title", langCode),
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp
-                    )
-
-                    Text(
-                        text = Localization.translate("turn_problems_desc", langCode),
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // 8-step pipeline visual indicator
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val stages = listOf("Discover", "Define", "Design", "Learn", "Build", "Test", "Improve", "Showcase")
-                        stages.forEachIndexed { index, stage ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.White.copy(alpha = 0.15f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                            ) {
-                                Text(
-                                    text = "${index + 1}. $stage",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Section: WHAT DO YOU WANT TO BUILD?
-        item {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "WHAT DO YOU WANT TO BUILD?",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF2E0A4E)
-                        )
-                        Text(
-                            text = "Select an intent category or create a custom problem card",
-                            fontSize = 11.sp,
-                            color = Color.Gray
-                        )
-                    }
-
-                    Button(
-                        onClick = { showProblemLab = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "+ Problem Lab",
-                            color = Color(0xFF2E0A4E),
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Intent Selector Cards Horizontal Scroll
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Filter All pill
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (selectedCategoryFilter == "all") ThemeIndigo else Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
-                            .clickable { selectedCategoryFilter = "all" }
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
-                    ) {
-                        Text(
-                            text = "🌟 All Builds (${builds.size})",
-                            color = if (selectedCategoryFilter == "all") Color.White else Color.Black,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    intentCategories.forEach { (catId, label, desc) ->
-                        val isSelected = selectedCategoryFilter == catId
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(if (isSelected) ThemeIndigo else Color.White)
-                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
-                                .clickable {
-                                    selectedCategoryFilter = catId
-                                    // Also open Problem Lab if selecting idea
-                                    if (catId == "idea") showProblemLab = true
-                                }
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
-                        ) {
-                            Column {
-                                Text(
-                                    text = label,
-                                    color = if (isSelected) Color.White else Color.Black,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = desc,
-                                    color = if (isSelected) ThemeGoldLight else Color.Gray,
-                                    fontSize = 9.sp
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Section: Problem Lab Active Builds List
-        item {
-            Text(
-                text = "ACTIVE PROBLEM BUILDS",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF2E0A4E),
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        items(filteredBuilds) { build ->
-            BuildCardItem(
-                build = build,
-                onProgressUpdate = { newProgress -> viewModel.updateBuildProgress(build.id, newProgress) },
-                onLaunchCodeSimulator = {
-                    val firstUnlocked = viewModel.allLessons.value.find { it.isUnlocked } ?: viewModel.allLessons.value.firstOrNull()
-                    firstUnlocked?.let { viewModel.selectLesson(it) }
-                },
-                onAskCoach = { viewModel.selectTab("ai_chat") }
-            )
-        }
-
-        // Section: Learning Engine - Tiny Learning Mission with 3-Tier Hints
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, ThemeCardBorder),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "🎯", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "TINY LEARNING MISSION",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.sp,
-                                color = ThemeIndigo
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFFEF3C7))
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = "Mission: Make Button Work",
-                                color = Color(0xFFB45309),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = "Every skill is taught inside your project. Here is the JavaScript event pipeline for your announcement board:",
-                        fontSize = 12.sp,
-                        color = Color.DarkGray,
-                        lineHeight = 17.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Pipeline: Event -> Function -> Action
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFE0E7FF))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Event\n(click)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3730A3))
-                        }
-
-                        Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Next", tint = Color.Gray, modifier = Modifier.size(16.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFF3E8FF))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Function\n(postNotice)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6B21A8))
-                        }
-
-                        Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Next", tint = Color.Gray, modifier = Modifier.size(16.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFD1FAE5))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Action\n(updateUI)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "Need help? Use tiered hints before revealing explicit code:",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Gray
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { activeHintLevel = if (activeHintLevel == 1) 0 else 1 },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (activeHintLevel >= 1) Color(0xFFFEF3C7) else Color.Gray.copy(alpha = 0.1f)
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = "Hint 1",
-                                fontSize = 11.sp,
-                                color = if (activeHintLevel >= 1) Color(0xFF92400E) else Color.DarkGray,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Button(
-                            onClick = { activeHintLevel = if (activeHintLevel == 2) 0 else 2 },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (activeHintLevel >= 2) Color(0xFFFED7AA) else Color.Gray.copy(alpha = 0.1f)
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = "Hint 2",
-                                fontSize = 11.sp,
-                                color = if (activeHintLevel >= 2) Color(0xFF9A3412) else Color.DarkGray,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Button(
-                            onClick = { activeHintLevel = if (activeHintLevel == 3) 0 else 3 },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (activeHintLevel >= 3) Color(0xFFFBCFE8) else Color.Gray.copy(alpha = 0.1f)
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = "Hint 3",
-                                fontSize = 11.sp,
-                                color = if (activeHintLevel >= 3) Color(0xFF9D174D) else Color.DarkGray,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    if (activeHintLevel > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFFFBEB))
-                                .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(12.dp))
-                                .padding(12.dp)
-                        ) {
-                            val hintText = when (activeHintLevel) {
-                                1 -> "💡 Hint 1: Think about what should happen in plain English when the user taps 'Submit Announcement'."
-                                2 -> "💡 Hint 2: You need an event listener function attached to the button: button.addEventListener('click', postNotice)."
-                                else -> "💡 Hint 3: Code snippet:\nconst btn = document.getElementById('submitBtn');\nbtn.addEventListener('click', () => alert('Notice Posted!'));"
-                            }
-                            Text(
-                                text = hintText,
-                                fontSize = 11.sp,
-                                color = Color(0xFF78350F),
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Section: KodeMamas Ecosystem Overview
-        item {
-            EcosystemOverviewCard()
-        }
-        }
-    }
-
-    if (showProblemLab) {
-        ProblemLabDialog(
-            onDismiss = { showProblemLab = false },
-            onCreateBuild = { cat, catIcon, title, problem, users, currSol, flaw, proposed ->
-                viewModel.createProblemBuild(cat, catIcon, title, problem, users, currSol, flaw, proposed)
-                showProblemLab = false
-            }
-        )
-    }
-}
-
-// Composable: BuildCardItem displaying Problem Card & Visual 7-Stage Build Board
-@Composable
-fun BuildCardItem(
-    build: ProblemBuild,
-    onProgressUpdate: (Int) -> Unit,
-    onLaunchCodeSimulator: () -> Unit,
-    onAskCoach: () -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, ThemeCardBorder),
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = build.categoryIcon, fontSize = 22.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = build.title,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            color = Color(0xFF1F2937)
-                        )
-                        Text(
-                            text = "Category: ${build.category.uppercase()}",
-                            fontSize = 10.sp,
-                            color = ThemeIndigo,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFF3E8FF))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${build.buildProgressPercent}% BUILT",
-                        color = Color(0xFF6D28D9),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Problem Card Details Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xFFFAF9FF))
-                    .border(1.dp, Color(0xFFE9D5FF), RoundedCornerShape(14.dp))
-                    .padding(12.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "📋 PROBLEM CARD",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = ThemeIndigo,
-                        letterSpacing = 0.5.sp
-                    )
-                    Text(
-                        text = "• Problem: ${build.problemStatement}",
-                        fontSize = 11.sp,
-                        color = Color.DarkGray,
-                        lineHeight = 15.sp
-                    )
-                    Text(
-                        text = "• Target Users: ${build.targetUsers}",
-                        fontSize = 11.sp,
-                        color = Color.DarkGray
-                    )
-                    Text(
-                        text = "• Current Solution Flaw: ${build.currentSolutionFlaw}",
-                        fontSize = 11.sp,
-                        color = Color(0xFFB91C1C)
-                    )
-                    Text(
-                        text = "• Tech Solution: ${build.proposedTechSolution}",
-                        fontSize = 11.sp,
-                        color = Color(0xFF047857),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Required Skills Badges
-            Text(
-                text = "BUILD PATH SKILLS NEEDED:",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                build.requiredSkills.split(",").forEach { skill ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFF3F4F6))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(text = skill.trim(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 7-Stage Build Board Visual Pipeline
-            Text(
-                text = "THE BUILD BOARD PROGRESS:",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val stages = listOf(
-                    Triple("🔎 DISCOVER", build.discoverCompleted, "Problem identified"),
-                    Triple("🧠 DEFINE", build.defineCompleted, "Users identified"),
-                    Triple("✏️ DESIGN", build.designCompleted, "Wireframe"),
-                    Triple("💻 BUILD", build.buildProgressPercent > 0, "${build.buildProgressPercent}%"),
-                    Triple("🧪 TEST", build.testCompleted, "3 users tested"),
-                    Triple("🔧 IMPROVE", build.improveCompleted, "2 improvements"),
-                    Triple("🚀 SHOWCASE", build.showcaseCompleted, "Portfolio Passport")
-                )
-
-                stages.forEach { (title, completed, detail) ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (completed) Color(0xFFECFDF5) else Color(0xFFF9FAFB))
-                            .border(
-                                1.dp,
-                                if (completed) Color(0xFFA7F3D0) else Color(0xFFE5E7EB),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 8.dp)
-                    ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = title,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (completed) Color(0xFF065F46) else Color.Gray
-                                )
-                                if (completed) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Done",
-                                        tint = Color(0xFF10B981),
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = detail,
-                                fontSize = 9.sp,
-                                color = if (completed) Color(0xFF047857) else Color.LightGray
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Interactive Progress Bar Slider
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Code & Prototype Build Progress", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
-                    Text(text = "${build.buildProgressPercent}%", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = ThemeIndigo)
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                LinearProgressIndicator(
-                    progress = { build.buildProgressPercent / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(CircleShape),
-                    color = ThemeIndigo,
-                    trackColor = Color(0xFFE5E7EB)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Action Row: Open Simulator / Ask Coach
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = onLaunchCodeSimulator,
-                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 10.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Code, contentDescription = "Code", tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Code This Build", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-
-                Button(
-                    onClick = onAskCoach,
-                    colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 10.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Assistant, contentDescription = "Coach", tint = Color(0xFF2E0A4E), modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Ask AI Coach", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E0A4E))
-                }
-            }
-        }
-    }
-}
-
-// Composable: The Ecosystem Overview Diagram Card
-@Composable
-fun EcosystemOverviewCard() {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E0638)),
-        border = BorderStroke(1.dp, ThemeCardBorder.copy(alpha = 0.4f)),
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text(
-                text = "KODEMAMAS ECOSYSTEM",
-                color = ThemeGold,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
-            )
-
-            Text(
-                text = "Connecting Learners, Schools, and Industry Partners",
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Pillar 1: Learners
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
-                        .padding(10.dp)
-                ) {
-                    Column {
-                        Text("👩‍🎓 Learners", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("• Real problems\n• Coding + AI\n• Builder Passport", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, lineHeight = 13.sp)
-                    }
-                }
-
-                // Pillar 2: Schools
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
-                        .padding(10.dp)
-                ) {
-                    Column {
-                        Text("🏫 Schools", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("• Classroom Hubs\n• Problem Banks\n• Assignment Tracker", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, lineHeight = 13.sp)
-                    }
-                }
-
-                // Pillar 3: Partners
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
-                        .padding(10.dp)
-                ) {
-                    Column {
-                        Text("🤝 Partners", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("• Local NGOs\n• Corporate Sponsors\n• Verifiable Badges", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, lineHeight = 13.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Dialog: Problem Lab Wizard for creating custom Problem Cards
-@Composable
-fun ProblemLabDialog(
-    onDismiss: () -> Unit,
-    onCreateBuild: (category: String, categoryIcon: String, title: String, problem: String, users: String, currSol: String, flaw: String, proposed: String) -> Unit
-) {
-    var category by remember { mutableStateOf("school") }
-    var title by remember { mutableStateOf("") }
-    var problemStatement by remember { mutableStateOf("") }
-    var targetUsers by remember { mutableStateOf("") }
-    var currentSolution by remember { mutableStateOf("") }
-    var currentSolutionFlaw by remember { mutableStateOf("") }
-    var proposedTechSolution by remember { mutableStateOf("") }
-
-    val categories = listOf(
-        Triple("school", "🏫", "School"),
-        Triple("community", "🏘️", "Community"),
-        Triple("business", "💼", "Business"),
-        Triple("environment", "🌱", "Environment"),
-        Triple("ai", "🤖", "AI Project"),
-        Triple("fun", "🎮", "Fun Idea")
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column {
-                Text(text = "🧪 Problem Lab Wizard", fontWeight = FontWeight.Black, fontSize = 18.sp, color = ThemeIndigo)
-                Text(
-                    text = "Define your problem before writing one line of code",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(text = "1. Choose Category:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    categories.forEach { (catId, icon, label) ->
-                        val isSelected = category == catId
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) ThemeIndigo else Color.LightGray.copy(alpha = 0.2f))
-                                .clickable { category = catId }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "$icon $label",
-                                color = if (isSelected) Color.White else Color.Black,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Build Title (e.g., Assignment Tracker)", fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                OutlinedTextField(
-                    value = problemStatement,
-                    onValueChange = { problemStatement = it },
-                    label = { Text("What is the real problem?", fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                OutlinedTextField(
-                    value = targetUsers,
-                    onValueChange = { targetUsers = it },
-                    label = { Text("Who experiences this problem?", fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                OutlinedTextField(
-                    value = currentSolutionFlaw,
-                    onValueChange = { currentSolutionFlaw = it },
-                    label = { Text("Why isn't the current solution good enough?", fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                OutlinedTextField(
-                    value = proposedTechSolution,
-                    onValueChange = { proposedTechSolution = it },
-                    label = { Text("What could technology do?", fontSize = 11.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isNotBlank() && problemStatement.isNotBlank()) {
-                        val selectedIcon = categories.find { it.first == category }?.second ?: "💡"
-                        onCreateBuild(
-                            category,
-                            selectedIcon,
-                            title,
-                            problemStatement,
-                            if (targetUsers.isBlank()) "Community Members" else targetUsers,
-                            if (currentSolution.isBlank()) "Manual process" else currentSolution,
-                            if (currentSolutionFlaw.isBlank()) "Inefficient & slow" else currentSolutionFlaw,
-                            if (proposedTechSolution.isBlank()) "Mobile web application" else proposedTechSolution
-                        )
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Generate Build Path", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.Gray, fontSize = 12.sp)
-            }
-        }
-    )
-}
-
 // ---------------------- TAB 2: LEARN / LESSONS ----------------------
 @Composable
 fun LearnTab(viewModel: MainViewModel, langCode: String) {
@@ -4262,64 +1945,25 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
             .padding(horizontal = 16.dp),
     ) {
         Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = Localization.translate("mobile_coding_path", langCode),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black
-                )
-                Text(
-                    text = Localization.translate("mobile_coding_desc", langCode),
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            
-            // Quick action to unlock all lessons if learner wants full access
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ThemeGold.copy(alpha = 0.18f))
-                    .border(1.dp, ThemeGold, RoundedCornerShape(12.dp))
-                    .clickable { viewModel.unlockAllCourses() }
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.LockOpen,
-                        contentDescription = "Unlock all",
-                        tint = Color(0xFF8A6D00),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = Localization.translate("unlock_all", langCode),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8A6D00)
-                    )
-                }
-            }
-        }
+        Text(
+            text = "Your Mobile Coding Path",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black,
+            color = Color.Black
+        )
+        Text(
+            text = "Select an interactive course below to build South African spaza applications and smart prediction crops forecasts.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 14.dp)
+        )
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 20.dp)
         ) {
             items(lessons) { lesson ->
-                val isUnlocked = lesson.isUnlocked || lesson.id == "html_1" || lesson.id == "html_5" // Force unlock html_1 and html_5
-
-                val translatedTitle = Localization.translate(lesson.id + "_title", langCode)
-                val displayTitle = if (translatedTitle == lesson.id + "_title") lesson.title else translatedTitle
-                val translatedDesc = Localization.translate(lesson.id + "_desc", langCode)
-                val displayDesc = if (translatedDesc == lesson.id + "_desc") lesson.titleLocalized else translatedDesc
+                val isUnlocked = lesson.isUnlocked || lesson.id == "html_1" // Force unlock html_1 just in case
 
                 Box(
                     modifier = Modifier
@@ -4391,7 +2035,6 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                                     modifier = Modifier
                                         .size(4.dp)
                                         .background(Color.Gray, RoundedCornerShape(2.dp))
-                                        .padding(bottom = 0.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -4402,13 +2045,13 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = displayTitle,
+                                text = lesson.title,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isUnlocked) Color.Black else Color.Gray
                             )
                             Text(
-                                text = displayDesc,
+                                text = lesson.titleLocalized,
                                 fontSize = 12.sp,
                                 color = if (isUnlocked) ThemeIndigo else Color.LightGray,
                                 fontWeight = FontWeight.Medium
@@ -4563,9 +2206,8 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
-                        val localizedStepTitle = Localization.translate(step.id + "_title", langCode)
                         Text(
-                            text = if (localizedStepTitle == step.id + "_title") step.title else localizedStepTitle,
+                            text = step.title,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Black,
                             color = Color.Black
@@ -4597,24 +2239,12 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                         color = ThemeIndigo
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    val localizedStepDesc = Localization.translate(step.id + "_desc", langCode)
                                     Text(
-                                        text = if (localizedStepDesc == step.id + "_desc") step.descriptionLocalized else localizedStepDesc,
+                                        text = step.descriptionLocalized,
                                         fontSize = 12.sp,
                                         color = Color.DarkGray,
                                         lineHeight = 17.sp
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    val localizedStepHint = Localization.translate(step.id + "_hint", langCode)
-                                    if (localizedStepHint != step.id + "_hint") {
-                                        Text(
-                                            text = "💡 $localizedStepHint",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = ThemeGold,
-                                            lineHeight = 15.sp
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -4769,7 +2399,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             shape = RoundedCornerShape(14.dp),
                             border = BorderStroke(1.dp, ThemeIndigo)
                         ) {
-                            Text(text = Localization.translate("previous_step", langCode), color = ThemeIndigo, fontWeight = FontWeight.Bold)
+                            Text(text = "Previous", color = ThemeIndigo, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -4783,7 +2413,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
-                            text = if (stepIndex == steps.size - 1) Localization.translate("launch_assessment", langCode) else Localization.translate("next_step", langCode),
+                            text = if (stepIndex == steps.size - 1) "Launch Assessment ⭐" else "Next Step",
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
@@ -4811,7 +2441,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = Localization.translate("multiple_choice_quiz", langCode),
+                                    text = "MULTIPLE CHOICE QUIZ",
                                     color = ThemeIndigo,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 9.sp
@@ -4915,7 +2545,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                         ) {
                             Column {
                                 Text(
-                                    text = if (quizCorrect) Localization.translate("quiz_correct_msg", langCode) else Localization.translate("quiz_wrong_msg", langCode),
+                                    text = if (quizCorrect) "Halala! Correct Answer! 🎉" else "Hawu! Not quite right.",
                                     color = if (quizCorrect) Color(0xFF137333) else Color(0xFFC5221F),
                                     fontWeight = FontWeight.Black,
                                     fontSize = 13.sp
@@ -4940,7 +2570,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             shape = RoundedCornerShape(14.dp),
                             enabled = selectedAns != -1
                         ) {
-                            Text(text = Localization.translate("verify_answer", langCode), fontWeight = FontWeight.Bold)
+                            Text(text = "Verify Answer", fontWeight = FontWeight.Bold)
                         }
                     } else {
                         Button(
@@ -4950,7 +2580,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             Text(
-                                text = if (quizIndex == quizQuestions.size - 1) Localization.translate("complete_quiz", langCode) else Localization.translate("next_question", langCode),
+                                text = if (quizIndex == quizQuestions.size - 1) "Complete Quiz! 🏁" else "Next Question",
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -4992,11 +2622,135 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                 colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
                                 shape = RoundedCornerShape(14.dp)
                             ) {
-                                Text(text = Localization.translate("back_to_path", langCode), color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(text = "Back to Path Map", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ---------------------- HELPER: FORMATTED CHAT MESSAGE ----------------------
+@Composable
+fun FormattedChatMessage(text: String) {
+    val context = LocalContext.current
+    val isGrounded = text.contains("Grounded with Google Search Database") || text.contains("Google Search Database & Real-Time Web Grounding")
+    val lines = text.split("\n")
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (isGrounded) {
+            Surface(
+                color = Color(0xFFF1F5FD),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, Color(0xFFD0E1FD)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1A73E8)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("G", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Grounded with Google Search Database & Gemini AI",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF174EA6)
+                    )
+                }
+            }
+        }
+
+        for (line in lines) {
+            val trimmedLine = line.trim()
+            if (trimmedLine.isBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+            } else if (trimmedLine.startsWith("•") && (trimmedLine.contains("http://") || trimmedLine.contains("https://"))) {
+                val urlMatcher = Regex("""https?://[^\s)\]]+""")
+                val match = urlMatcher.find(trimmedLine)
+                val url = match?.value
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🔗", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = trimmedLine.replace(Regex("""https?://[^\s)\]]+"""), "").replace("[", "").replace("]", "").replace("•", "").trim(),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1E1E1E),
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (url != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        FilledTonalButton(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(26.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFFE8F0FE),
+                                contentColor = Color(0xFF1A73E8)
+                            )
+                        ) {
+                            Text("Open", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    text = buildAnnotatedString {
+                        var i = 0
+                        while (i < line.length) {
+                            if (i + 1 < line.length && line[i] == '*' && line[i + 1] == '*') {
+                                val end = line.indexOf("**", i + 2)
+                                if (end != -1) {
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))) {
+                                        append(line.substring(i + 2, end))
+                                    }
+                                    i = end + 2
+                                    continue
+                                }
+                            } else if (line[i] == '*' && (i + 1 == line.length || line[i + 1] != '*')) {
+                                val end = line.indexOf('*', i + 1)
+                                if (end != -1) {
+                                    withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = Color(0xFF2C2C2C))) {
+                                        append(line.substring(i + 1, end))
+                                    }
+                                    i = end + 1
+                                    continue
+                                }
+                            }
+                            append(line[i])
+                            i++
+                        }
+                    },
+                    fontSize = 13.sp,
+                    color = Color(0xFF222222),
+                    lineHeight = 18.sp
+                )
             }
         }
     }
@@ -5006,28 +2760,606 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
 @Composable
 fun AiChatTab(viewModel: MainViewModel, langCode: String) {
     val chats by viewModel.aiChats.collectAsState()
-    val isOnline by viewModel.isOnline.collectAsState()
     val isGenerating by viewModel.aiGenerating.collectAsState()
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
+    val customApiKey by viewModel.customApiKey.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
+    val isGoogleSearchEnabled by viewModel.isGoogleSearchEnabled.collectAsState()
+    val selectedModel by viewModel.selectedGeminiModel.collectAsState()
+    val aiLanguageCode by viewModel.aiLanguageCode.collectAsState()
 
     var textInput by remember { mutableStateOf("") }
+    var showKeyDialog by remember { mutableStateOf(false) }
+    var keyInput by remember(customApiKey) { mutableStateOf(customApiKey) }
 
-    val suggestionChips = listOf(
-        "📈 Donald Miller 6-Step Plan",
-        "🌐 HTML Headers & Buttons",
-        "🎨 CSS Styling Tips",
-        "⚡ JavaScript Calculations",
-        "🐍 Python Crop Predictor",
-        "👩‍💻 Socratic AI Coach",
-        "🇿🇦 Sawubona (isiZulu)",
-        "🇿🇦 Molo (isiXhosa)"
-    )
+    if (showKeyDialog) {
+        AlertDialog(
+            onDismissRequest = { showKeyDialog = false },
+            title = {
+                Text(
+                    text = "AI Engine & Google Search Settings",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "KodeMamas AI connects online Google Search Database grounding with Google Gemini AI models to provide verified real-time answers.",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.85f),
+                        lineHeight = 16.sp
+                    )
 
-    // Auto-scroll on new message
-    LaunchedEffect(chats.size, isGenerating) {
-        if (chats.isNotEmpty()) {
-            listState.animateScrollToItem(chats.size - 1)
+                    // Connectivity Status
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF380A60))
+                            .padding(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (isOnline) Color(0xFF00E676) else Color(0xFFFF9800))
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isOnline) "Network: Online (Web Grounding Active)" else "Network: Offline (Local Engine Mode)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
+
+                    // Google Search Grounding Switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Google Search Grounding",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFC107)
+                            )
+                            Text(
+                                text = "Query Google's live database for real-time sources",
+                                fontSize = 10.sp,
+                                color = Color.White.copy(alpha = 0.7f)
+                            )
+                        }
+                        Switch(
+                            checked = isGoogleSearchEnabled,
+                            onCheckedChange = { viewModel.toggleGoogleSearch(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFFFFC107),
+                                checkedTrackColor = Color(0xFF6B27A8)
+                            )
+                        )
+                    }
+
+                    // Gemini Model Selector
+                    Text(
+                        text = "Active Gemini Model",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            GeminiService.MODEL_GEMINI_3_5_FLASH to "3.5 Flash",
+                            GeminiService.MODEL_GEMINI_3_1_PRO to "3.1 Pro",
+                            GeminiService.MODEL_GEMINI_FLASH_LATEST to "Flash Latest"
+                        ).forEach { (modelId, label) ->
+                            FilterChip(
+                                selected = selectedModel == modelId,
+                                onClick = { viewModel.setSelectedGeminiModel(modelId) },
+                                label = { Text(label, fontSize = 10.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFFFFC107),
+                                    selectedLabelColor = Color.Black,
+                                    containerColor = Color(0xFF380A60),
+                                    labelColor = Color.White
+                                )
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = if (customApiKey.isNotBlank()) "✅ Custom Gemini API Key configured" else "⚡ Using AI Studio / Cloud Gemini Key",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (customApiKey.isNotBlank()) Color(0xFF00E676) else Color(0xFFFFC107)
+                    )
+                    OutlinedTextField(
+                        value = keyInput,
+                        onValueChange = { keyInput = it },
+                        label = { Text("Custom Gemini API Key (Optional)", color = Color(0xFFFFC107)) },
+                        placeholder = { Text("Paste AI Studio API key here...", color = Color.Gray, fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFFFFC107),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            cursorColor = Color(0xFFFFC107)
+                        )
+                    )
+                    Text(
+                        text = "Leave empty to use the built-in Gemini Intelligence Engine, or enter your personal Gemini API key.",
+                        fontSize = 10.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setCustomApiKey(keyInput)
+                        showKeyDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
+                ) {
+                    Text("Save", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        keyInput = ""
+                        viewModel.setCustomApiKey("")
+                        showKeyDialog = false
+                    }
+                ) {
+                    Text("Clear / Default", color = Color.White.copy(alpha = 0.7f))
+                }
+            },
+            containerColor = Color(0xFF26053D)
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFF2E094E))
+            .border(1.dp, Color(0xFF4D177E), RoundedCornerShape(24.dp))
+            .padding(14.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Helper Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFC107)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "🤖", fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "KodeMamas AI Assistant",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Google Search Database • Gemini AI Online",
+                        color = Color(0xFFFFC107),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                IconButton(
+                    onClick = { showKeyDialog = true },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VpnKey,
+                        contentDescription = "AI Settings",
+                        tint = Color(0xFFFFC107),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                IconButton(
+                    onClick = { viewModel.clearAiMessages() },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Reset Chat",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Status & Search Grounding Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF380A60))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isOnline) Color(0xFF00E676) else Color(0xFFFF9800))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isOnline) "Online" else "Offline",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "•",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 11.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (selectedModel == GeminiService.MODEL_GEMINI_3_1_PRO) "Gemini 3.1 Pro" else "Gemini 3.5 Flash",
+                        color = Color(0xFFFFD700),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Google Search Grounding Toggle Pill
+                FilterChip(
+                    selected = isGoogleSearchEnabled,
+                    onClick = { viewModel.toggleGoogleSearch() },
+                    label = {
+                        Text(
+                            text = if (isGoogleSearchEnabled) "Google Search: ON" else "Google Search: OFF",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFFFFC107),
+                        selectedLabelColor = Color.Black,
+                        selectedLeadingIconColor = Color.Black,
+                        containerColor = Color.White.copy(alpha = 0.1f),
+                        labelColor = Color.White.copy(alpha = 0.8f),
+                        iconColor = Color.White.copy(alpha = 0.8f)
+                    ),
+                    border = null
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 12 South African Official Languages Selector Bar (Removing the English Barrier)
+            val saLanguages = listOf(
+                "auto" to "🌍 Auto-Detect (All 12 SA)",
+                "zu" to "🇿🇦 isiZulu",
+                "xh" to "🇿🇦 isiXhosa",
+                "af" to "🇿🇦 Afrikaans",
+                "nso" to "🇿🇦 Sepedi",
+                "tn" to "🇿🇦 Setswana",
+                "st" to "🇿🇦 Sesotho",
+                "ts" to "🇿🇦 Xitsonga",
+                "ss" to "🇿🇦 siSwati",
+                "ve" to "🇿🇦 Tshivenda",
+                "nr" to "🇿🇦 isiNdebele",
+                "sasl" to "🤟 SASL (Sign)",
+                "en" to "🇬🇧 English"
+            )
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp)
+            ) {
+                items(saLanguages) { (code, label) ->
+                    val isSelected = aiLanguageCode == code
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { viewModel.setAiLanguageCode(code) },
+                        label = {
+                            Text(
+                                text = label,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFFFFC107),
+                            selectedLabelColor = Color.Black,
+                            containerColor = Color(0xFF380A60),
+                            labelColor = Color.White.copy(alpha = 0.9f)
+                        ),
+                        border = if (isSelected) BorderStroke(1.dp, Color(0xFFFFC107)) else null
+                    )
+                }
+            }
+
+            // Quick Search / Prompt Chips
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Chaza ukuthi i-AI isebenza kanjani ngazo zonke izilimi eziyi-12 zokuhlela amakhompyutha nobuchwepheshe eNingizimu Afrika ngaphandle kwesiNgisi")
+                        },
+                        label = { Text("🇿🇦 Zonke Izilimi Eziyi-12", fontSize = 11.sp, color = Color(0xFFFFD700), fontWeight = FontWeight.Bold) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Sawubona! Ungichazele ukuthi yini ama-variables nama-loops nge-Python ngesiZulu")
+                        },
+                        label = { Text("🇿🇦 isiZulu: Python & Loops", fontSize = 11.sp, color = Color.White) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Molo! Ndicacisele ukuba lisebenza njani ifom ye-HTML ne-CSS ngesiXhosa")
+                        },
+                        label = { Text("🇿🇦 isiXhosa: HTML & CSS", fontSize = 11.sp, color = Color.White) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Explain visual coding gestures and SASL sign gloss for deaf South African tech learners")
+                        },
+                        label = { Text("🤟 SASL: Sign Language Code", fontSize = 11.sp, color = Color.White) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Search Google database for South African tech internships and coding bursaries 2026")
+                        },
+                        label = { Text("🇿🇦 SA Tech Internships 2026", fontSize = 11.sp, color = Color.White) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Search Google database: What are the best practices for building a responsive web app for township spaza shops?")
+                        },
+                        label = { Text("🛒 Spaza Shop Web App", fontSize = 11.sp, color = Color.White) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Search Google database: Latest features in Python 3.12 and practical coding examples")
+                        },
+                        label = { Text("🐍 Python 3.12 Features", fontSize = 11.sp, color = Color.White) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+                item {
+                    SuggestionChip(
+                        onClick = {
+                            viewModel.sendAiChat("Explain systems requests feasibility analysis in simple terms with an IT steering committee example")
+                        },
+                        label = { Text("💡 Systems Feasibility", fontSize = 11.sp, color = Color.White) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(containerColor = Color(0xFF4A1878))
+                    )
+                }
+            }
+
+            // Chat Messages Container
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(chats) { msg ->
+                    if (msg.isUser) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color(0xFF4A1878))
+                                    .border(1.dp, Color(0xFF6B27A8), RoundedCornerShape(16.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = msg.messageText,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    } else {
+                        // Assistant Message: Clean white card with formatted Markdown and Google Search Grounding badge
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.White)
+                                    .padding(14.dp)
+                            ) {
+                                FormattedChatMessage(text = msg.messageText)
+                            }
+                        }
+                    }
+                }
+
+                if (isGenerating) {
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                color = Color(0xFFFFC107),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isOnline && isGoogleSearchEnabled) "Searching Google database & consulting Gemini AI..." else "Mama AI is generating answer...",
+                                color = Color(0xFFFFC107),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Capsule Input Row with Search and Send buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                TextField(
+                    value = textInput,
+                    onValueChange = { textInput = it },
+                    placeholder = {
+                        Text(
+                            text = "Ask anything or search Google database...",
+                            color = Color(0xFF757575),
+                            fontSize = 12.sp
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(25.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = Color(0xFF26053D)
+                    ),
+                    shape = RoundedCornerShape(25.dp),
+                    singleLine = true
+                )
+
+                // Quick Google Database Search action button
+                IconButton(
+                    onClick = {
+                        if (textInput.isNotBlank()) {
+                            viewModel.searchGoogleDatabase(textInput.trim())
+                            textInput = ""
+                        }
+                    },
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFC107))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search Google Database",
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Standard Chat Send button
+                IconButton(
+                    onClick = {
+                        if (textInput.isNotBlank()) {
+                            viewModel.sendAiChat(textInput.trim())
+                            textInput = ""
+                        }
+                    },
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF380A60))
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ---------------------- TAB: BUILDS / SANDBOX ----------------------
+@Composable
+fun BuildsTab(viewModel: MainViewModel, langCode: String) {
+    val editorText by viewModel.editorText.collectAsState()
+    val simulatorOutput by viewModel.simulatorOutput.collectAsState()
+    val simulatorSuccess by viewModel.simulatorSuccess.collectAsState()
+
+    var selectedLang by remember { mutableStateOf("HTML") }
+
+    LaunchedEffect(selectedLang) {
+        if (editorText.isEmpty()) {
+            when (selectedLang) {
+                "HTML" -> viewModel.updateEditorText("<h1>Mam's Spaza Shop</h1>\n<p>Fresh daily baked bread & milk</p>\n<ul>\n  <li>Blue Ribbon Bread - R18.50</li>\n  <li>Clover Milk - R16.00</li>\n</ul>")
+                "CSS" -> viewModel.updateEditorText("body {\n  background-color: #0C0714;\n  color: #FFD700;\n  font-family: sans-serif;\n}")
+                "JavaScript" -> viewModel.updateEditorText("function calculateTotal(breadQty, milkQty) {\n  const breadPrice = 18.50;\n  const milkPrice = 16.00;\n  return (breadQty * breadPrice) + (milkQty * milkPrice);\n}\nconsole.log('R' + calculateTotal(2, 3));")
+                "Python" -> viewModel.updateEditorText("temp = 32\nif temp > 30:\n    print('Warning: High Heat! Increase irrigation x2.')\nelse:\n    print('Normal climate. Maintain standard water flow.')")
+            }
         }
     }
 
@@ -5035,198 +3367,196 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Chatbot prompt header box
+        // Builds Header Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(ThemeIndigo)
-                .padding(14.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color(0xFF2E094E))
+                .border(1.dp, Color(0xFF4D177E), RoundedCornerShape(22.dp))
+                .padding(16.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(ThemeGold),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "🤖", fontSize = 18.sp)
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "KodeMamas AI Coach",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(ThemeGold.copy(alpha = 0.25f))
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Socratic AI",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ThemeGold
-                            )
-                        }
-                    }
-                    Text(
-                        text = if (isOnline) "⚡ Gemini 3.5 Flash Active" else "🛡️ On-Device Socratic Engine",
-                        fontSize = 10.sp,
-                        color = ThemeGold
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(
-                    onClick = { viewModel.clearAiMessages() },
-                    modifier = Modifier.testTag("ai_clear_chats_button")
-                ) {
-                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "Clear Chats", tint = Color.White)
-                }
-            }
-        }
-
-        // Messages list
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            reverseLayout = false
-        ) {
-            items(chats) { msg ->
-                val fromUser = msg.isUser
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    contentAlignment = if (fromUser) Alignment.CenterEnd else Alignment.CenterStart
-                ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .clip(
-                                RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                    bottomStart = if (fromUser) 16.dp else 2.dp,
-                                    bottomEnd = if (fromUser) 2.dp else 16.dp
-                                )
-                            )
-                            .background(if (fromUser) ThemeIndigo else Color.White)
-                            .border(1.dp, if (fromUser) ThemeIndigo else ThemeCardBorder, RoundedCornerShape(16.dp))
-                            .padding(12.dp)
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(ThemeGold),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = msg.messageText,
-                            color = if (fromUser) Color.White else Color.Black,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp
-                        )
+                        Icon(Icons.Default.Build, contentDescription = null, tint = Color(0xFF26053D), modifier = Modifier.size(20.dp))
                     }
-                }
-            }
-
-            if (isGenerating) {
-                item {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                    ) {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
                         Text(
-                            text = "Mama Assistant is compiling response...",
-                            color = ThemeIndigo,
+                            text = "KodeMamas Code Builds",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "Interactive Mobile Compiler & Sandbox",
+                            color = ThemeGold,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Build real-world projects for township businesses, agriculture, and schools right from your phone — offline or online.",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
             }
         }
 
-        // Quick Suggestion Chips
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            items(suggestionChips) { chip ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(ThemeCardBorder.copy(alpha = 0.35f))
-                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(12.dp))
-                        .clickable {
-                            val cleanPrompt = chip.substringAfter(" ").trim()
-                            viewModel.sendAiChat(cleanPrompt)
-                        }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = chip,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.DarkGray
-                    )
-                }
-            }
-        }
-
-        // Typing inputs
+        // Language Selectors
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            TextField(
-                value = textInput,
-                onValueChange = { textInput = it },
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .testTag("ai_chat_input"),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
-                placeholder = {
+            listOf("HTML", "CSS", "JavaScript", "Python").forEach { lang ->
+                val isSelected = selectedLang == lang
+                Button(
+                    onClick = {
+                        selectedLang = lang
+                        when (lang) {
+                            "HTML" -> viewModel.updateEditorText("<h1>Mam's Spaza Shop</h1>\n<p>Fresh daily baked bread & milk</p>\n<ul>\n  <li>Blue Ribbon Bread - R18.50</li>\n  <li>Clover Milk - R16.00</li>\n</ul>")
+                            "CSS" -> viewModel.updateEditorText("body {\n  background-color: #0C0714;\n  color: #FFD700;\n  font-family: sans-serif;\n}")
+                            "JavaScript" -> viewModel.updateEditorText("function calculateTotal(breadQty, milkQty) {\n  const breadPrice = 18.50;\n  const milkPrice = 16.00;\n  return (breadQty * breadPrice) + (milkQty * milkPrice);\n}\nconsole.log('R' + calculateTotal(2, 3));")
+                            "Python" -> viewModel.updateEditorText("temp = 32\nif temp > 30:\n    print('Warning: High Heat! Increase irrigation x2.')\nelse:\n    print('Normal climate. Maintain standard water flow.')")
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSelected) ThemeGold else Color(0xFF350B56)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
                     Text(
-                        text = Localization.translate("ask_something", langCode),
+                        text = if (lang == "JavaScript") "JS" else lang,
+                        color = if (isSelected) Color(0xFF26053D) else Color.White,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
                     )
                 }
+            }
+        }
+
+        // Editor widget
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(ThemeDarkBg)
+                .border(1.dp, Color(0xFF4D177E), RoundedCornerShape(20.dp))
+                .padding(14.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "$selectedLang LIVE SCRIPT",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Icon(
+                    imageVector = Icons.Default.Code,
+                    contentDescription = null,
+                    tint = ThemeGold,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+
+            TextField(
+                value = editorText,
+                onValueChange = { viewModel.updateEditorText(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                textStyle = TextStyle(
+                    color = ThemeGold,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedTextColor = ThemeGold,
+                    unfocusedTextColor = ThemeGold,
+                    focusedContainerColor = Color(0xFF130D1E),
+                    unfocusedContainerColor = Color(0xFF130D1E),
+                    cursorColor = ThemeGold,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                )
             )
 
-            IconButton(
-                onClick = {
-                    if (textInput.isNotBlank()) {
-                        viewModel.sendAiChat(textInput)
-                        textInput = ""
-                    }
-                },
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(ThemeIndigo)
-                    .testTag("ai_send_button")
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { viewModel.runSimulatorCode() },
+                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Send,
-                    contentDescription = "Send Message",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Run Code in Mobile Simulator", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+
+        // Compiler output
+        if (simulatorOutput.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (simulatorSuccess) Color(0xFFE6F4EA) else Color(0xFFFFEBE8))
+                    .border(
+                        1.dp,
+                        if (simulatorSuccess) Color(0xFF34A853) else Color(0xFFEA4335),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .padding(14.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (simulatorSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
+                            contentDescription = null,
+                            tint = if (simulatorSuccess) Color(0xFF2B8A3E) else Color(0xFFC92A2A),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (simulatorSuccess) "OUTPUT GENERATED" else "COMPILER NOTICE",
+                            fontWeight = FontWeight.Black,
+                            color = if (simulatorSuccess) Color(0xFF2B8A3E) else Color(0xFFC92A2A),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = simulatorOutput,
+                        color = Color.DarkGray,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 16.sp
+                    )
+                }
             }
         }
     }
@@ -5235,1705 +3565,233 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
 // ---------------------- TAB 4: COMMUNITY SECTION ----------------------
 @Composable
 fun CommunityTab(viewModel: MainViewModel, langCode: String) {
+    var selectedCommunitySubTab by remember { mutableStateOf(0) } // 0: Firebase People Database, 1: Forum Circle
     val posts by viewModel.allPosts.collectAsState()
-    val buddies by viewModel.allBuddies.collectAsState()
-    val selectedBuddy by viewModel.selectedBuddy.collectAsState()
-    val activeMessages by viewModel.activeBuddyMessages.collectAsState()
-
     var postInput by remember { mutableStateOf("") }
-    var activeSubTab by remember { mutableStateOf("forum") } // forum, buddies
-
-    // Buddy filter states
-    var filterInterest by remember { mutableStateOf("All") }
-    var filterLanguage by remember { mutableStateOf("All") }
-    var filterProgress by remember { mutableStateOf("All") }
-
-    var showShareResourceDropdown by remember { mutableStateOf(false) }
-
-    val filteredBuddies = buddies.filter { buddy ->
-        val matchInterest = filterInterest == "All" || buddy.interests.contains(filterInterest)
-        val matchLang = filterLanguage == "All" || buddy.languageCode.equals(filterLanguage, ignoreCase = true)
-        val matchProgress = filterProgress == "All" || buddy.currentLesson.contains(filterProgress, ignoreCase = true)
-        matchInterest && matchLang && matchProgress
-    }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // Tab header
-        Text(
-            text = "Community Hub 🇿🇦",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Black,
-            color = Color.Black
-        )
-        Text(
-            text = "Connect, share coding templates, and get peer support from other South African mothers & students.",
-            fontSize = 11.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        // Modern segment tab controller
+        // Subtab Switcher: Firebase People DB vs Township Forum Circle
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .border(1.dp, ThemeCardBorder, RoundedCornerShape(12.dp))
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color(0xFFEDE7F6))
                 .padding(4.dp)
         ) {
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (activeSubTab == "forum") ThemeIndigo else Color.Transparent)
-                    .clickable { activeSubTab = "forum" }
-                    .padding(vertical = 10.dp),
+                    .background(if (selectedCommunitySubTab == 0) ThemeIndigo else Color.Transparent)
+                    .clickable { selectedCommunitySubTab = 0 }
+                    .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "📢 " + Localization.translate("sub_analytics", langCode).replace("Live Analytics", "Township Forum").replace("Analytics", "Forum"),
+                    text = "People in Tech (Firebase 🇿🇦)",
+                    color = if (selectedCommunitySubTab == 0) Color.White else Color(0xFF4A148C),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = if (activeSubTab == "forum") Color.White else Color.Gray
+                    fontSize = 11.sp
                 )
             }
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (activeSubTab == "buddies") ThemeIndigo else Color.Transparent)
-                    .clickable { activeSubTab = "buddies" }
-                    .padding(vertical = 10.dp),
+                    .background(if (selectedCommunitySubTab == 1) ThemeIndigo else Color.Transparent)
+                    .clickable { selectedCommunitySubTab = 1 }
+                    .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "🤝 " + "Mama buddies",
+                    text = "Township Forum",
+                    color = if (selectedCommunitySubTab == 1) Color.White else Color(0xFF4A148C),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = if (activeSubTab == "buddies") Color.White else Color.Gray
+                    fontSize = 11.sp
                 )
+            }
+        }
+
+        if (selectedCommunitySubTab == 0) {
+            // Live Firebase People Database Hub
+            FirebasePeopleHub(
+                viewModel = viewModel,
+                langCode = langCode,
+                onConnectWithPerson = { person ->
+                    viewModel.selectTab("mentorship")
+                }
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Community Circle 🇿🇦",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black
+                )
+                Text(
+                    text = "Connect with mamas, girls, and tech mentors in your area to ask questions or share achievements.",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+        // Write a post dialogue box
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color.White)
+                .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
+                .padding(14.dp)
+        ) {
+            Column {
+                TextField(
+                    value = postInput,
+                    onValueChange = { postInput = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    placeholder = { Text(text = "Share your daily coding win with Soweto Hub...", fontSize = 12.sp) },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFFFAF9FF),
+                        unfocusedContainerColor = Color(0xFFFAF9FF),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        if (postInput.trim().isNotEmpty()) {
+                            viewModel.addForumPost(postInput)
+                            postInput = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(text = "Post to Forum", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (activeSubTab == "forum") {
-            // Write a post dialogue box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
-                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
-                    .padding(14.dp)
-            ) {
-                Column {
-                    val isPostLengthValid = postInput.length <= 500
-                    val isPostEmpty = postInput.trim().isEmpty()
-                    val hasBlockedWords = listOf("http", "www", "free money", "bitcoin", "casino").any { postInput.lowercase().contains(it) }
-                    val isPostValid = isPostLengthValid && !isPostEmpty && !hasBlockedWords
-
-                    TextField(
-                        value = postInput,
-                        onValueChange = { postInput = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(72.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        placeholder = { Text(text = "Share your daily coding win with Bloemfontein Hub...", fontSize = 12.sp) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFFFAF9FF),
-                            unfocusedContainerColor = Color(0xFFFAF9FF),
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Inline error warnings
-                        if (hasBlockedWords) {
-                            Text("Please avoid links or spam content.", color = Color.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        } else if (postInput.length > 500) {
-                            Text("Content exceeds 500 character limit!", color = Color.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        } else {
-                            Spacer(modifier = Modifier.width(1.dp))
-                        }
-
-                        // Character counter
-                        Text(
-                            text = "${postInput.length} / 500",
-                            color = if (isPostLengthValid) Color.Gray else Color.Red,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Button(
-                        onClick = {
-                            if (isPostValid) {
-                                viewModel.addForumPost(postInput)
-                                postInput = ""
-                            }
-                        },
-                        enabled = isPostValid,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ThemeIndigo,
-                            disabledContainerColor = Color.LightGray
-                        ),
-                        modifier = Modifier.align(Alignment.End),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Text(text = "Post to Forum", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isPostValid) Color.White else Color.DarkGray)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            // Posts list
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 20.dp)
-            ) {
-                items(posts) { p ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(
-                                            if (p.role == "Mentor") ThemeGold else ThemeIndigo.copy(alpha = 0.1f)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = if (p.role == "Mentor") "⭐" else "👩🏾",
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = p.author,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color.Black
-                                    )
-                                    Text(
-                                        text = when (p.role) {
-                                            "Mentor" -> "Matched Tech Instructor"
-                                            "Mama" -> "Mama Student"
-                                            else -> "Township Tech Student"
-                                        },
-                                        fontSize = 9.sp,
-                                        color = ThemeIndigo,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = p.content,
-                                fontSize = 12.sp,
-                                color = Color.DarkGray,
-                                lineHeight = 17.sp
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    modifier = Modifier.clickable { viewModel.likeForumPost(p.id) },
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Favorite,
-                                        contentDescription = "Like",
-                                        tint = Color(0xFFFF5722),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = "${p.likes} Likes", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                                }
-
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.InsertComment,
-                                        contentDescription = "Comments",
-                                        tint = Color.Gray,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = "Review replies", fontSize = 11.sp, color = Color.Gray)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            // Buddy System Section
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // Filter Panel Card
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White)
-                        .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                        .padding(12.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.FilterList,
-                                contentDescription = "Filters",
-                                tint = ThemeIndigo,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Filter Peer Network",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                        }
-
-                        // Interests Filter Row
-                        Column {
-                            Text(text = "Interests:", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                listOf("All", "Spaza Shops", "Agriculture", "Tech Jobs", "Motherhood", "NGOs").forEach { opt ->
-                                    val isSel = filterInterest == opt
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(if (isSel) ThemeIndigo else Color(0xFFF3F2FF))
-                                            .clickable { filterInterest = opt }
-                                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(text = opt, fontSize = 10.sp, color = if (isSel) Color.White else Color.DarkGray, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Languages Filter Row
-                        Column {
-                            Text(text = "Native Language:", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                (listOf(Triple("All", "All", "🇿🇦")) + Localization.languages.map { lang ->
-                                    Triple(lang.code, lang.displayName, if (lang.code == "sasl") "🤟" else "🇿🇦")
-                                }).forEach { (code, label, flag) ->
-                                    val isSel = filterLanguage == code
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(if (isSel) ThemeIndigo else Color(0xFFF3F2FF))
-                                            .clickable { filterLanguage = code }
-                                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(text = "$flag $label", fontSize = 10.sp, color = if (isSel) Color.White else Color.DarkGray, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Progress Filter Row
-                        Column {
-                            Text(text = "Learning Topic:", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                listOf("All", "HTML", "CSS", "JS", "Python").forEach { opt ->
-                                    val isSel = filterProgress == opt
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(if (isSel) ThemeIndigo else Color(0xFFF3F2FF))
-                                            .clickable { filterProgress = opt }
-                                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(text = opt, fontSize = 10.sp, color = if (isSel) Color.White else Color.DarkGray, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Buddies list
-                if (filteredBuddies.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(text = "🔍", fontSize = 32.sp)
-                            Text(text = "No matching companions in your area.", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Text(text = "Try adjusting your filters to broaden search.", fontSize = 10.sp, color = Color.LightGray)
-                        }
-                    }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 20.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(filteredBuddies) { buddy ->
-                            val isConnected = buddy.isConnected
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color.White)
-                                    .border(1.dp, if (isConnected) ThemeIndigo else ThemeCardBorder, RoundedCornerShape(20.dp))
-                                    .padding(14.dp)
-                            ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        // Avatar
-                                        Box(
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(RoundedCornerShape(20.dp))
-                                                .background(ThemeIndigo.copy(alpha = 0.1f)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = if (buddy.avatarRes == "mama_avatar") "👩🏾" else "👧🏾",
-                                                fontSize = 20.sp
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(10.dp))
-
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    text = buddy.name,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 14.sp,
-                                                    color = Color.Black
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(ThemeGold.copy(alpha = 0.15f))
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text(text = "${buddy.xp} XP", fontSize = 8.sp, fontWeight = FontWeight.Black, color = Color(0xFFE5A900))
-                                                }
-                                            }
-                                            Text(
-                                                text = when (buddy.role) {
-                                                    "Mama" -> "Mama Student"
-                                                    "Student" -> "Township Tech Student"
-                                                    else -> "Tech Advisor"
-                                                } + " • " + (Localization.languages.find { it.code.equals(buddy.languageCode, ignoreCase = true) }?.displayName ?: "English") + " 🇿🇦",
-                                                fontSize = 10.sp,
-                                                color = Color.Gray
-                                            )
-                                        }
-
-                                        if (isConnected) {
-                                            // Connected Badge
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color(0xFFE8F5E9))
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                            ) {
-                                                Text(text = "Buddy Active 🤝", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
-                                            }
-                                        }
-                                    }
-
-                                    Divider(color = Color(0xFFECEBFF), thickness = 1.dp)
-
-                                    // Display interests
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = "Interests: ",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.Gray
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            modifier = Modifier.horizontalScroll(rememberScrollState())
-                                        ) {
-                                            buddy.interests.split(",").forEach { interest ->
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(Color(0xFFFAF9FF))
-                                                        .border(1.dp, Color(0xFFECEBFF), RoundedCornerShape(6.dp))
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text(text = interest.trim(), fontSize = 8.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Display Progress
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.School,
-                                            contentDescription = "Lesson progress",
-                                            tint = ThemeIndigo,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "Working on: ",
-                                            fontSize = 9.sp,
-                                            color = Color.Gray
-                                        )
-                                        Text(
-                                            text = buddy.currentLesson,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.Black
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    // Action buttons
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        if (!isConnected) {
-                                            Button(
-                                                onClick = {
-                                                    viewModel.connectWithBuddy(buddy.id, true)
-                                                    android.widget.Toast.makeText(
-                                                        viewModel.getApplication(),
-                                                        "🤝 Connected with ${buddy.name}! You can now share learning templates.",
-                                                        android.widget.Toast.LENGTH_SHORT
-                                                    ).show()
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                                                modifier = Modifier.weight(1f),
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(vertical = 8.dp)
-                                            ) {
-                                                Text(text = "Connect 🤝", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        } else {
-                                            Button(
-                                                onClick = {
-                                                    viewModel.selectBuddyForChat(buddy)
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                                                modifier = Modifier.weight(1.5f),
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(vertical = 8.dp)
-                                            ) {
-                                                Text(text = "Chat & Share Templates 💬", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            }
-
-                                            OutlinedButton(
-                                                onClick = {
-                                                    viewModel.connectWithBuddy(buddy.id, false)
-                                                    android.widget.Toast.makeText(
-                                                        viewModel.getApplication(),
-                                                        "Removed buddy relationship.",
-                                                        android.widget.Toast.LENGTH_SHORT
-                                                    ).show()
-                                                },
-                                                modifier = Modifier.weight(0.7f),
-                                                shape = RoundedCornerShape(12.dp),
-                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
-                                                border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.3f)),
-                                                contentPadding = PaddingValues(vertical = 8.dp)
-                                            ) {
-                                                Text(text = "Disconnect", fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Interactive Peer Chat System Dialog Overlay
-    selectedBuddy?.let { buddy ->
-        var chatInputText by remember { mutableStateOf("") }
-        var showShareDialog by remember { mutableStateOf(false) }
-
-        Dialog(
-            onDismissRequest = { viewModel.selectBuddyForChat(null) }
+        // Posts list
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 20.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(520.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
-                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
-                    .padding(16.dp)
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Header
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(ThemeIndigo.copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = if (buddy.avatarRes == "mama_avatar") "👩🏾" else "👧🏾", fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = buddy.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(text = "Offline Study Buddy • ${buddy.currentLesson}", fontSize = 9.sp, color = Color.Gray)
-                        }
-                        IconButton(onClick = { viewModel.selectBuddyForChat(null) }) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Close chat", tint = Color.Gray)
-                        }
-                    }
-
-                    Divider(color = Color(0xFFECEBFF), modifier = Modifier.padding(vertical = 8.dp))
-
-                    // Tips banner
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(ThemeSoftBg)
-                            .padding(8.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "💡", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Peer tip: Code template sharing doesn't consume mobile data!", fontSize = 9.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Messages List
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(activeMessages) { msg ->
-                            val isMe = msg.senderId == "me"
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.85f)
-                                        .clip(
-                                            RoundedCornerShape(
-                                                topStart = 16.dp,
-                                                topEnd = 16.dp,
-                                                bottomStart = if (isMe) 16.dp else 4.dp,
-                                                bottomEnd = if (isMe) 4.dp else 16.dp
-                                            )
-                                        )
-                                        .background(if (isMe) ThemeIndigo else Color(0xFFF3F2FF))
-                                        .padding(10.dp)
-                                ) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text(
-                                            text = msg.messageText,
-                                            color = if (isMe) Color.White else Color.Black,
-                                            fontSize = 11.sp,
-                                            lineHeight = 15.sp
-                                        )
-
-                                        // Render shared resource panel if present!
-                                        if (msg.sharedResourceTitle.isNotEmpty()) {
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(if (isMe) Color(0xFF0C0714) else Color.White)
-                                                    .border(1.dp, if (isMe) Color(0xFF2C1945) else Color(0xFFECEBFF), RoundedCornerShape(8.dp))
-                                                    .padding(8.dp)
-                                            ) {
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Code,
-                                                            contentDescription = "Code snippet icon",
-                                                            tint = ThemeGold,
-                                                            modifier = Modifier.size(12.dp)
-                                                        )
-                                                        Spacer(modifier = Modifier.width(4.dp))
-                                                        Text(
-                                                            text = msg.sharedResourceTitle,
-                                                            fontSize = 9.sp,
-                                                            color = if (isMe) Color.White else Color.Black,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                    Text(
-                                                        text = msg.sharedResourceCode,
-                                                        fontFamily = FontFamily.Monospace,
-                                                        fontSize = 8.sp,
-                                                        color = if (isMe) Color(0xFF86E3CE) else Color(0xFF1B5E20),
-                                                        lineHeight = 10.sp,
-                                                        modifier = Modifier.horizontalScroll(rememberScrollState())
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        Text(
-                                            text = if (isMe) "Sent offline" else "Connected buddy",
-                                            fontSize = 7.sp,
-                                            color = (if (isMe) Color.White else Color.Gray).copy(alpha = 0.6f),
-                                            modifier = Modifier.align(Alignment.End)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Input bar and actions
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        IconButton(
-                            onClick = { showShareDialog = true },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(Color(0xFFE5E0FA))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Attachment,
-                                contentDescription = "Share Template",
-                                tint = ThemeIndigo,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        TextField(
-                            value = chatInputText,
-                            onValueChange = { chatInputText = it },
-                            placeholder = { Text(text = "Type message...", fontSize = 11.sp) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .clip(RoundedCornerShape(19.dp)),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFFFAF9FF),
-                                unfocusedContainerColor = Color(0xFFFAF9FF),
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            textStyle = TextStyle(fontSize = 11.sp),
-                            singleLine = true
-                        )
-
-                        IconButton(
-                            onClick = {
-                                if (chatInputText.trim().isNotEmpty()) {
-                                    viewModel.sendBuddyMessage(buddy.id, chatInputText)
-                                    chatInputText = ""
-                                }
-                            },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(ThemeIndigo)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Send,
-                                contentDescription = "Send",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Share resource popover chooser
-        if (showShareDialog) {
-            val templates = listOf(
-                Triple("Mam's Spaza storefront (HTML)", "<h1>Mam's Spaza Shop</h1>\n<p>Fresh Daily Bread: R18.50</p>", "html_1"),
-                Triple("African Warmth palette (CSS)", "body {\n  background-color: #121212;\n  color: #FFD700;\n}", "css_2"),
-                Triple("Cart price calculator (JS)", "function calculateTotal(bread, milk) {\n  return (bread * 18.5) + (milk * 16);\n}", "js_3"),
-                Triple("Smart irrigation alert (Python)", "temp = 32\nif temp > 30:\n  print('Warning: Double watering')\n", "python_4")
-            )
-
-            Dialog(onDismissRequest = { showShareDialog = false }) {
+            items(posts) { p ->
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color.White)
                         .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                        .padding(16.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "Share Coding Template 📂",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color.Black
-                        )
-                        Text(
-                            text = "Select a local compiler workspace template to share with your study buddy.",
-                            fontSize = 10.sp,
-                            color = Color.Gray
-                        )
-
-                        templates.forEach { (title, code, id) ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFFAF9FF))
-                                    .border(1.dp, Color(0xFFECEBFF), RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        viewModel.sendBuddyMessage(
-                                            buddyId = buddy.id,
-                                            text = "Check out my compilation workspace code for '${title}'!",
-                                            sharedResourceTitle = title,
-                                            sharedResourceCode = code
-                                        )
-                                        showShareDialog = false
-                                    }
-                                    .padding(10.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(imageVector = Icons.Default.Code, contentDescription = "Template selection icon", tint = ThemeIndigo, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Text(text = code.replace("\n", " "), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 9.sp, color = Color.Gray)
-                                    }
-                                }
-                            }
-                        }
-
-                        TextButton(
-                            onClick = { showShareDialog = false },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Text(text = "Close", color = ThemeIndigo, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ---------------------- TAB 5: MENTORSHIP & CAREERS (PREMIUM) ----------------------
-@Composable
-fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
-    val profile by viewModel.userProfile.collectAsState()
-    val isTyping by viewModel.mentorTyping.collectAsState()
-    val mentorChats by viewModel.mentorChats.collectAsState()
-
-    var chatText by remember { mutableStateOf("") }
-    var mentorNavState by remember { mutableStateOf("menu") } // menu, advisor, cv, interview
-
-    // Local states for CV Builder input
-    var nameCV by remember { mutableStateOf("Nokwazi Nobuhle Xaba") }
-    var locationCV by remember { mutableStateOf("Bloemfontein, Free State") }
-    var selectedRoleCV by remember { mutableStateOf("Spaza Manager & Digitization Specialist") }
-    var skillsCV by remember { mutableStateOf("HTML storefront alignment, CSS palettes tuning, Local Android compilers handling") }
-
-    // local state for Interview Prep
-    var activeFeedbackText by remember { mutableStateOf("") }
-    
-    // South African simulated payment dialog state
-    var showPaymentDialog by remember { mutableStateOf(false) }
-    var initialChoiceIsPremium by remember { mutableStateOf(true) }
-    var showUpgradeToPremiumAlert by remember { mutableStateOf(false) }
-
-    if (showPaymentDialog) {
-        SouthAfricanPaymentDialog(
-            initialIsPremium = initialChoiceIsPremium,
-            langCode = langCode,
-            onDismiss = { showPaymentDialog = false },
-            onPaymentSuccess = { isPremiumOption ->
-                if (isPremiumOption) {
-                    viewModel.claimPremiumUpgrade()
-                } else {
-                    viewModel.claimPlusUpgrade()
-                }
-                showPaymentDialog = false
-            }
-        )
-    }
-
-    if (showUpgradeToPremiumAlert) {
-        Dialog(onDismissRequest = { showUpgradeToPremiumAlert = false }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
-                    .border(2.dp, ThemeIndigo, RoundedCornerShape(24.dp))
-                    .padding(20.dp)
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Premium Career Feature 👑",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 18.sp,
-                        color = ThemeIndigo
-                    )
-                    
-                    Text(
-                        text = "This premium high-touch module (1-on-1 advisor chats, professional South African CV builders, and counselor mock reviews) is reserved for the R299/month Premium Career Pack.",
-                        fontSize = 12.sp,
-                        color = Color.DarkGray,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 16.sp
-                    )
-
-                    Text(
-                        text = "Your current status: " + (if (profile?.isPlus == true) "Plus Track (R99) ⚡" else "Free trial 🆓"),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeGold
-                    )
-
-                    Button(
-                        onClick = {
-                            showUpgradeToPremiumAlert = false
-                            initialChoiceIsPremium = true
-                            showPaymentDialog = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = "Upgrade to Premium • R299", color = Color.White)
-                    }
-
-                    OutlinedButton(
-                        onClick = { showUpgradeToPremiumAlert = false },
-                        border = BorderStroke(1.dp, Color.LightGray),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = "Cancel", color = Color.Gray)
-                    }
-                }
-            }
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        if (mentorNavState == "menu") {
-            // MAIN CAREER SERVICES MENU
-            Text(
-                text = "Premium Mentorship & Careers 🌟",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black,
-                color = Color.Black
-            )
-            Text(
-                text = "Unlock professional internship matching, CV compilers tools, and premium counselor connections.",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            // Current Premium Status header
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(ThemeDarkBg)
-                    .padding(16.dp)
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(17.dp))
-                                .background(ThemeGold),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "👑", fontSize = 17.sp)
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = if (profile?.isPremium == true) "KodeMamas Premium Active 🌟" else if (profile?.isPlus == true) "KodeMamas Plus Active ⚡" else "Join Premium or Plus Track",
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = if (profile?.isPremium == true) "UNLIMITED AI + 1-ON-1 COUNSELING" else if (profile?.isPlus == true) "UNLIMITED AI + ADVANCED COURSES" else "Free trial available to all township graduates!",
-                                color = ThemeGold,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                              )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    if (profile?.isPremium != true && profile?.isPlus != true) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    initialChoiceIsPremium = false
-                                    showPaymentDialog = true
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold.copy(alpha = 0.85f)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(text = "Plus • R99/m", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                            }
-
-                            Button(
-                                onClick = {
-                                    initialChoiceIsPremium = true
-                                    showPaymentDialog = true
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(text = "Premium • R299/m", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                            }
-                        }
-                    } else if (profile?.isPlus == true) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    initialChoiceIsPremium = true
-                                    showPaymentDialog = true
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1.3f)
-                            ) {
-                                Text(text = "Upgrade to Premium • R299", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                            }
-
-                            OutlinedButton(
-                                onClick = { viewModel.cancelPlus() },
-                                modifier = Modifier.weight(0.7f),
-                                border = BorderStroke(1.dp, Color.White),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(text = "Cancel Plus", color = Color.White, fontSize = 11.sp)
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { viewModel.claimPlusUpgrade() },
-                                colors = ButtonDefaults.buttonColors(containerColor = ThemeGold.copy(alpha = 0.8f)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1.2f)
-                            ) {
-                                Text(text = "Downgrade to Plus • R99", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                            }
-
-                            OutlinedButton(
-                                onClick = { viewModel.cancelAllSubscriptions() },
-                                modifier = Modifier.weight(0.8f),
-                                border = BorderStroke(1.dp, Color.White),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(text = "Cancel Premium", color = Color.White, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Sub-services rows
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Feature 1: 1-on-1 advisor
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .clickable {
-                                if (profile?.isPremium == true) {
-                                    mentorNavState = "advisor"
-                                } else {
-                                    initialChoiceIsPremium = true
-                                    showUpgradeToPremiumAlert = true
-                                }
-                            }
-                            .padding(14.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(ThemeIndigo.copy(alpha = 0.1f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(imageVector = Icons.Default.ChatBubble, contentDescription = null, tint = ThemeIndigo)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "1-on-1 advisor chat", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 13.sp)
-                                Text(text = "Matches with Founder Nokwazi inside Bloemfontein campus", fontSize = 11.sp, color = Color.Gray)
-                            }
-                            Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = ThemeIndigo)
-                        }
-                    }
-                }
-
-                // Feature 2: CV Builder
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .clickable {
-                                if (profile?.isPremium == true) {
-                                    mentorNavState = "cv"
-                                } else {
-                                    initialChoiceIsPremium = true
-                                    showUpgradeToPremiumAlert = true
-                                }
-                            }
-                            .padding(14.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(ThemeIndigo.copy(alpha = 0.1f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(imageVector = Icons.Default.Badge, contentDescription = null, tint = ThemeIndigo)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "Localized CV / Resume Creator", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 13.sp)
-                                Text(text = "Configure professional developer resume file layouts", fontSize = 11.sp, color = Color.Gray)
-                            }
-                            Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = ThemeIndigo)
-                        }
-                    }
-                }
-
-                // Feature 3: Interview prep
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(20.dp))
-                            .clickable {
-                                if (profile?.isPremium == true) {
-                                    mentorNavState = "interview"
-                                } else {
-                                    initialChoiceIsPremium = true
-                                    showUpgradeToPremiumAlert = true
-                                }
-                            }
-                            .padding(14.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(ThemeIndigo.copy(alpha = 0.1f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(imageVector = Icons.Default.QuestionAnswer, contentDescription = null, tint = ThemeIndigo)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "Mock Interview Simulators", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 13.sp)
-                                Text(text = "Test core developer interview templates with counselor feedback", fontSize = 11.sp, color = Color.Gray)
-                            }
-                            Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = ThemeIndigo)
-                        }
-                    }
-                }
-            }
-
-        } else if (mentorNavState == "advisor") {
-            // ADVISOR CHAT
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                IconButton(onClick = { mentorNavState = "menu" }) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = ThemeIndigo)
-                }
-                Text(text = "Founder Nokwazi 👩🏾‍💼", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color.Black)
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(mentorChats) { chat ->
-                    val isUs = chat.isUser
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = if (isUs) Alignment.CenterEnd else Alignment.CenterStart
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.8f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isUs) ThemeIndigo else Color.White)
-                                .border(1.dp, ThemeCardBorder, RoundedCornerShape(14.dp))
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = chat.messageText,
-                                color = if (isUs) Color.White else Color.Black,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-                }
-
-                if (isTyping) {
-                    item {
-                        Text(text = "Nokwazi is replying to your message...", color = Color.Gray, fontSize = 11.sp)
-                    }
-                }
-            }
-
-            // Input Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextField(
-                    value = chatText,
-                    onValueChange = { chatText = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp)),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    placeholder = { Text(text = "Ask Nokwazi about internships in Bloemfontein...", fontSize = 12.sp) }
-                )
-
-                IconButton(
-                    onClick = {
-                        if (chatText.isNotEmpty()) {
-                            viewModel.sendMentorChat(chatText)
-                            chatText = ""
-                        }
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(ThemeIndigo)
-                ) {
-                    Icon(imageVector = Icons.Default.Send, contentDescription = null, tint = Color.White)
-                }
-            }
-
-        } else if (mentorNavState == "cv") {
-            // CV CREATOR
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                IconButton(onClick = { mentorNavState = "menu" }) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = ThemeIndigo)
-                }
-                Text(text = "Tuned Resumes Builder", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color.Black)
-            }
-
-            // Simple responsive input fields scroll
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                TextField(
-                    value = nameCV,
-                    onValueChange = { nameCV = it },
-                    label = { Text("Your Full Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                TextField(
-                    value = locationCV,
-                    onValueChange = { locationCV = it },
-                    label = { Text("Location (Township/City)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                TextField(
-                    value = selectedRoleCV,
-                    onValueChange = { selectedRoleCV = it },
-                    label = { Text("Target Role") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                TextField(
-                    value = skillsCV,
-                    onValueChange = { skillsCV = it },
-                    label = { Text("Mamas Tech Skills (comma separated)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 3
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // CV PREVIEW BOARD IN ARTISTIC FLAIR STYLE
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.White)
-                        .border(2.dp, ThemeIndigo, RoundedCornerShape(24.dp))
-                        .padding(18.dp)
-                ) {
-                    Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(text = "RESUME OUTPUT", fontSize = 10.sp, fontWeight = FontWeight.Black, color = ThemeIndigo)
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFFE6F4EA))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(text = "READY FOR LOCAL ATTACHMENT", color = Color(0xFF137333), fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(text = nameCV.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                        Text(text = locationCV, fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(ThemeCardBorder)
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(text = "CAREER STATEMENT:", fontWeight = FontWeight.Black, fontSize = 11.sp, color = ThemeIndigo)
-                        Text(
-                            text = "Matriculated South African student seeking entry into junior roles, offering high levels of diligence and structured offline technical training as a certified $selectedRoleCV from KodeMamas academy.",
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp,
-                            color = Color.DarkGray
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(text = "VERIFIED IN-APP SKILLS:", fontWeight = FontWeight.Black, fontSize = 11.sp, color = ThemeIndigo)
-                        Text(
-                            text = skillsCV,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp,
-                            color = Color.DarkGray
-                        )
-                    }
-                }
-            }
-
-        } else if (mentorNavState == "interview") {
-            // INTERVIEW ASSESSMENT PREP
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                IconButton(onClick = { mentorNavState = "menu" }) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = ThemeIndigo)
-                }
-                Text(text = "Township Interview Trainer", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color.Black)
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
-                    .border(1.dp, ThemeCardBorder, RoundedCornerShape(24.dp))
-                    .padding(16.dp)
-            ) {
-                Column {
-                    Text(text = "QUESTION FLASHCARD:", fontSize = 9.sp, fontWeight = FontWeight.Black, color = ThemeIndigo)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "A client asks us to make their online baking catalogue background match the color of localized African pumpkins using external stylesheet. What styling parameter handles this?",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                val answers = listOf(
-                    "background: red;",
-                    "background-color: darkorange;",
-                    "color: gold;",
-                    "opacity: 1;"
-                )
-                answers.forEach { ans ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White)
-                            .border(1.dp, ThemeCardBorder, RoundedCornerShape(16.dp))
-                            .clickable {
-                                activeFeedbackText = if (ans.contains("darkorange")) {
-                                    "Excellent response! 🎉 Pumpkin color aligns perfectly with #FF8C00 (DarkOrange). This demonstrates you have fully mastered CSS color styling rules."
-                                } else {
-                                    "Hawu! Not quite right. Try option 'darkorange' which renders warm African pumpkin colors."
-                                }
-                            }
-                            .padding(14.dp)
-                    ) {
-                        Text(text = ans, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.DarkGray)
-                    }
-                }
-            }
-
-            if (activeFeedbackText.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(ThemeIndigo.copy(alpha = 0.08f))
                         .padding(14.dp)
                 ) {
-                    Text(text = activeFeedbackText, color = ThemeIndigo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        if (p.role == "Mentor") ThemeGold else ThemeIndigo.copy(alpha = 0.1f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (p.role == "Mentor") "⭐" else "👩🏾",
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = p.author,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color.Black
+                                )
+                                Text(
+                                    text = when (p.role) {
+                                        "Mentor" -> "Matched Tech Instructor"
+                                        "Mama" -> "Mama Student"
+                                        else -> "Township Tech Student"
+                                    },
+                                    fontSize = 9.sp,
+                                    color = ThemeIndigo,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = p.content,
+                            fontSize = 12.sp,
+                            color = Color.DarkGray,
+                            lineHeight = 17.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.clickable { viewModel.likeForumPost(p.id) },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Favorite,
+                                    contentDescription = "Like",
+                                    tint = Color(0xFFFF5722),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "${p.likes} Likes", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.InsertComment,
+                                    contentDescription = "Comments",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "Review replies", fontSize = 11.sp, color = Color.Gray)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
+}
+}
 
-// ---------------------- COMPONENT: SETTINGS DIALOG (SETTINGS MENU) ----------------------
+// ---------------------- TAB 6: MENTORSHIP & CAREERS (PREMIUM) ----------------------
 @Composable
-fun SettingsDialog(
-    currentLangCode: String,
-    userProfile: UserProfile?,
-    isOnline: Boolean,
-    onDismiss: () -> Unit,
-    onLangSelected: (String) -> Unit,
-    onToggleDataSaver: (Boolean) -> Unit,
-    onToggleNetwork: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color.White)
-                .border(2.dp, ThemeIndigo, RoundedCornerShape(28.dp))
-                .padding(20.dp)
-        ) {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            tint = ThemeIndigo,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = "Settings Menu",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 18.sp,
-                            color = ThemeIndigo
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFF3E8FF))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "v1.2",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ThemeIndigo
-                        )
-                    }
-                }
-
-                Text(
-                    text = "Configure app language toggle (all 12 South African languages) and device data optimization.",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-
-                // Language Toggle Section
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "APP LANGUAGE TOGGLE",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeIndigo.copy(alpha = 0.8f)
-                    )
-                    
-                    Box(
-                        modifier = Modifier
-                            .height(200.dp)
-                            .fillMaxWidth()
-                            .border(1.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                            .padding(4.dp)
-                    ) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().testTag("settings_language_list"),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            items(Localization.languages) { lang ->
-                                val isSelected = lang.code == currentLangCode
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(if (isSelected) ThemeIndigo.copy(alpha = 0.1f) else Color.Transparent)
-                                        .clickable { onLangSelected(lang.code) }
-                                        .testTag("settings_lang_option_${lang.code}")
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        val flag = when (lang.code) {
-                                            "sasl" -> "🤟"
-                                            else -> "🇿🇦"
-                                        }
-                                        Text(text = flag, fontSize = 16.sp)
-                                        Text(
-                                            text = lang.localName,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) ThemeIndigo else Color.Black,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-                                    Text(
-                                        text = lang.displayName,
-                                        color = Color.Gray,
-                                        fontSize = 11.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Preferences & Network optimization section
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "PREFERENCES & NETWORK",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeIndigo.copy(alpha = 0.8f)
-                    )
-
-                    // Data Saver switch
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.Gray.copy(alpha = 0.05f))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Data-Saving Mode",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = Color.Black
-                            )
-                            Text(
-                                text = "Limit background data & compress visual assets",
-                                fontSize = 10.sp,
-                                color = Color.Gray
-                            )
-                        }
-                        androidx.compose.material3.Switch(
-                            checked = userProfile?.dataSavingMode == true,
-                            onCheckedChange = { onToggleDataSaver(it) },
-                            modifier = Modifier.testTag("settings_data_saver_switch")
-                        )
-                    }
-
-                    // Network toggle switch
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.Gray.copy(alpha = 0.05f))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Online Connectivity",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = Color.Black
-                            )
-                            Text(
-                                text = if (isOnline) "Connected to standard data" else "Zero-data offline lessons active",
-                                fontSize = 10.sp,
-                                color = if (isOnline) Color(0xFF10B981) else Color.Gray
-                            )
-                        }
-                        androidx.compose.material3.Switch(
-                            checked = isOnline,
-                            onCheckedChange = { onToggleNetwork() },
-                            modifier = Modifier.testTag("settings_network_switch")
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Button(
-                        onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.testTag("settings_dismiss_button")
-                    ) {
-                        Text("Close", fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
+fun MentorshipTab(viewModel: MainViewModel, langCode: String) {
+    MentorshipCareerHub(viewModel = viewModel, langCode = langCode)
 }
 
 // ---------------------- COMPONENT: DIALOG DYNAMIC SELECTOR ----------------------
@@ -6966,10 +3824,7 @@ fun LanguagePickerDialog(
                 )
 
                 Box(modifier = Modifier.height(300.dp)) {
-                    LazyColumn(
-                        modifier = Modifier.testTag("language_list"),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(Localization.languages) { lang ->
                             val isSelected = lang.code == currentLangCode
                             Row(
@@ -6978,7 +3833,6 @@ fun LanguagePickerDialog(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(if (isSelected) ThemeIndigo.copy(alpha = 0.08f) else Color.Transparent)
                                     .clickable { onLangSelected(lang.code) }
-                                    .testTag("lang_option_${lang.code}")
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -7004,10 +3858,7 @@ fun LanguagePickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("lang_dialog_cancel_button")
-                    ) {
+                    TextButton(onClick = onDismiss) {
                         Text(text = "Cancel", color = Color.Gray, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -7015,2508 +3866,3 @@ fun LanguagePickerDialog(
         }
     }
 }
-
-// ---------------------- COMPONENT: OFFLINE ACCOUNT DIALOG ----------------------
-@Composable
-fun OfflineAccountDialog(
-    userProfile: UserProfile?,
-    onDismiss: () -> Unit,
-    onSubmit: (name: String, role: String, languageCode: String, xp: Int) -> Unit
-) {
-    var nameInput by remember { mutableStateOf(userProfile?.name ?: "") }
-    var selectedRole by remember { mutableStateOf(userProfile?.role ?: "Mama") }
-    var selectedLangCode by remember { mutableStateOf(userProfile?.languageCode ?: "en") }
-    var xpLevel by remember { mutableStateOf("Novice (0 XP)") }
-
-    val isNameValid = nameInput.trim().length in 1..30 && nameInput.all { it.isLetterOrDigit() || it.isWhitespace() || it == '-' || it == '\'' }
-    val nameErrorMessage = when {
-        nameInput.trim().isEmpty() -> "Name cannot be empty"
-        nameInput.length > 30 -> "Name must be 30 characters or less"
-        !nameInput.all { it.isLetterOrDigit() || it.isWhitespace() || it == '-' || it == '\'' } -> "Special characters not allowed"
-        else -> null
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color.White)
-                .border(2.dp, ThemeIndigo, RoundedCornerShape(28.dp))
-                .padding(20.dp)
-        ) {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = Localization.translate("easy_offline_title", selectedLangCode),
-                        fontWeight = FontWeight.Black,
-                        fontSize = 18.sp,
-                        color = ThemeIndigo
-                    )
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE8F0FE))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "OFFLINE",
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Black,
-                            color = ThemeIndigo
-                        )
-                    }
-                }
-
-                Text(
-                    text = Localization.translate("easy_offline_desc", selectedLangCode),
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-
-                // Name Input
-                Column {
-                    Text(
-                        text = "YOUR NAME / HUB NICKNAME",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeIndigo.copy(alpha = 0.8f)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OutlinedTextField(
-                        value = nameInput,
-                        onValueChange = { nameInput = it },
-                        placeholder = { Text("e.g. Sister Naledi", fontSize = 12.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = nameErrorMessage != null && nameInput.isNotEmpty(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ThemeIndigo,
-                            unfocusedBorderColor = Color.LightGray,
-                            focusedLabelColor = ThemeIndigo,
-                            errorBorderColor = Color.Red
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    if (nameErrorMessage != null && nameInput.isNotEmpty()) {
-                        Text(
-                            text = nameErrorMessage,
-                            color = Color.Red,
-                            fontSize = 10.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
-
-                // Role Selection
-                Column {
-                    Text(
-                        text = "YOUR COMMUNITY ROLE",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeIndigo.copy(alpha = 0.8f)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf("Mama", "Student", "Girl").forEach { role ->
-                            val isChosen = selectedRole == role
-                            val icon = when (role) {
-                                "Mama" -> "👩‍👧"
-                                "Student" -> "👩‍🎓"
-                                else -> "👧"
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isChosen) ThemeIndigo else Color.White)
-                                    .border(
-                                        1.dp,
-                                        if (isChosen) ThemeIndigo else Color.LightGray,
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable { selectedRole = role }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = icon, fontSize = 16.sp)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = role,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isChosen) Color.White else Color.Black
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Native Language Selection
-                Column {
-                    Text(
-                        text = "LOCAL HOME LANGUAGE",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeIndigo.copy(alpha = 0.8f)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Localization.languages.forEach { lang ->
-                            val isChosen = selectedLangCode == lang.code
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isChosen) ThemeIndigo.copy(alpha = 0.12f) else Color.Transparent)
-                                    .border(
-                                        1.dp,
-                                        if (isChosen) ThemeIndigo else Color.LightGray,
-                                        RoundedCornerShape(10.dp)
-                                    )
-                                    .clickable { selectedLangCode = lang.code }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = lang.localName,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isChosen) ThemeIndigo else Color.Black
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Starting XP level
-                Column {
-                    Text(
-                        text = "YOUR STARTING XP EXPERIENCE",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeIndigo.copy(alpha = 0.8f)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf("Novice (0 XP)", "Rookie (100 XP)", "Expert (180 XP)").forEach { tier ->
-                            val isChosen = xpLevel == tier
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isChosen) ThemeIndigo else Color.Transparent)
-                                    .border(
-                                        1.dp,
-                                        if (isChosen) ThemeIndigo else Color.LightGray,
-                                        RoundedCornerShape(10.dp)
-                                    )
-                                    .clickable { xpLevel = tier }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = tier.substringBefore(" ("),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isChosen) Color.White else Color.Black
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Action Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = Localization.translate("cancel_btn", selectedLangCode),
-                            color = Color.Gray,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    }
-
-                    Button(
-                        onClick = {
-                            if (nameInput.isNotBlank() && isNameValid) {
-                                val targetXp = when (xpLevel) {
-                                    "Rookie (100 XP)" -> 100
-                                    "Expert (180 XP)" -> 180
-                                    else -> 0
-                                }
-                                onSubmit(nameInput, selectedRole, selectedLangCode, targetXp)
-                            }
-                        },
-                        enabled = nameInput.isNotBlank() && isNameValid,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ThemeIndigo,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(2.0f)
-                    ) {
-                        Text(
-                            text = Localization.translate("save_btn", selectedLangCode),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ---------------------- COMPONENT: LANDING / ONBOARDING SCREEN ----------------------
-@Composable
-fun OnboardingScreen(
-    onGetStarted: () -> Unit,
-    onExploreCourses: () -> Unit = {},
-    langCode: String,
-    isOnline: Boolean,
-    onToggleNetwork: () -> Unit,
-    viewModel: MainViewModel
-) {
-    var showLanguagePickerInSplash by remember { mutableStateOf(false) }
-    var selectedPremiumBenefit by remember { mutableStateOf<String?>(null) }
-    var premiumBenefitDescription by remember { mutableStateOf("") }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F041C),
-                        Color(0xFF07030F),
-                        Color(0xFF000000)
-                    )
-                )
-            )
-            .statusBarsPadding()
-            .navigationBarsPadding()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Quick Lang & Connection top header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(if (isOnline) Color(0xFF10B981) else Color(0xFFFFB800))
-                    )
-                    Text(
-                        text = if (isOnline) "ONLINE" else "OFFLINE READY",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .clickable { showLanguagePickerInSplash = true }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(text = "🇿🇦", fontSize = 12.sp)
-                        Text(
-                            text = langCode.uppercase(),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "Change Language",
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-
-            // Hero Brand Branding
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "</> ",
-                        color = Color(0xFFFFD700),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                    Text(
-                        text = "Kode",
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                    Text(
-                        text = "Mamas",
-                        color = Color(0xFF8B5CF6),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Black,
-                    )
-                }
-
-                Text(
-                    text = Localization.translate("cover_tagline", langCode),
-                    color = Color(0xFFFFD700),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    letterSpacing = 0.5.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                Box(
-                    modifier = Modifier
-                        .padding(top = 10.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF6D28D9).copy(alpha = 0.2f))
-                        .border(BorderStroke(1.dp, Color(0xFF6D28D9).copy(alpha = 0.5f)), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = Localization.translate("cover_empowering", langCode),
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Adaptive Multi-Pane Columns Block
-            val configuration = LocalConfiguration.current
-            val isWideScreen = configuration.screenWidthDp > 600
-
-            if (isWideScreen) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        LeftPanelSection(
-                            onGetStarted = onGetStarted,
-                            onExploreCourses = onExploreCourses,
-                            langCode = langCode
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        RightPanelSection(
-                            onShowBenefit = { name, desc ->
-                                selectedPremiumBenefit = name
-                                premiumBenefitDescription = desc
-                            },
-                            langCode = langCode
-                        )
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    LeftPanelSection(
-                        onGetStarted = onGetStarted,
-                        onExploreCourses = onExploreCourses,
-                        langCode = langCode
-                    )
-                    
-                    // Core illustration banner in center
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AfricanQueenIllustration()
-                    }
-
-                    RightPanelSection(
-                        onShowBenefit = { name, desc ->
-                            selectedPremiumBenefit = name
-                            premiumBenefitDescription = desc
-                        },
-                        langCode = langCode
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Founder Story Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF120822)),
-                border = BorderStroke(1.dp, Color(0xFF6D28D9).copy(alpha = 0.3f)),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = Localization.translate("founder_mission", langCode),
-                        color = Color(0xFFFFD700),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = Localization.translate("founder_desc", langCode),
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Bottom Brand Branding Footer
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF0F041C))
-                    .padding(vertical = 18.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "KODEMAMAS.",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "CODE TODAY.",
-                        color = Color(0xFF8B5CF6),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "CHANGE TOMORROW.",
-                        color = Color(0xFFFFD700),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "♡",
-                        color = Color(0xFF8B5CF6),
-                        fontSize = 11.sp
-                    )
-                }
-            }
-        }
-    }
-
-    if (showLanguagePickerInSplash) {
-        LanguagePickerDialog(
-            currentLangCode = langCode,
-            onDismiss = { showLanguagePickerInSplash = false },
-            onLangSelected = { code ->
-                viewModel.changeLanguage(code)
-                showLanguagePickerInSplash = false
-            }
-        )
-    }
-
-    if (selectedPremiumBenefit != null) {
-        Dialog(onDismissRequest = { selectedPremiumBenefit = null }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B0B30)),
-                border = BorderStroke(1.dp, Color(0xFFFFD700)),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(text = "👑 Premium Advantage", color = Color(0xFFFFD700), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                    Text(text = selectedPremiumBenefit!!, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
-                    Text(
-                        text = premiumBenefitDescription,
-                        color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-                    Button(
-                        onClick = { selectedPremiumBenefit = null },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6D28D9)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                    ) {
-                        Text(text = "Close", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun LeftPanelSection(
-    onGetStarted: () -> Unit,
-    onExploreCourses: () -> Unit,
-    langCode: String
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // Points card wrapper with thin purple border
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF1B0B30).copy(alpha = 0.3f))
-                .border(BorderStroke(1.5.dp, Color(0xFF6D28D9)), RoundedCornerShape(20.dp))
-                .padding(16.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Point 1
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFFD700).copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = null,
-                            tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = Localization.translate("learn_coding_title", langCode),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = Localization.translate("sa_languages_count", langCode),
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 10.sp
-                        )
-                    }
-                }
-
-                // Point 2
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF8B5CF6).copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudDownload,
-                            contentDescription = null,
-                            tint = Color(0xFF8B5CF6),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = Localization.translate("offline_online_title", langCode),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = Localization.translate("download_learn_anywhere", langCode),
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 10.sp
-                        )
-                    }
-                }
-
-                // Point 3
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFFD700).copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.People,
-                            contentDescription = null,
-                            tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = Localization.translate("built_for_sa_title", langCode),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = Localization.translate("township_rural_desc", langCode),
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 10.sp
-                        )
-                    }
-                }
-            }
-        }
-
-        // Action block
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = Localization.translate("start_journey", langCode),
-                    color = Color(0xFFFFD700),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Icon(
-                    imageVector = Icons.Default.KeyboardDoubleArrowDown,
-                    contentDescription = null,
-                    tint = Color(0xFFFFD700),
-                    modifier = Modifier.size(12.dp)
-                )
-            }
-
-            Button(
-                onClick = onGetStarted,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6D28D9)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = Localization.translate("get_started_btn", langCode),
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            OutlinedButton(
-                onClick = onExploreCourses,
-                border = BorderStroke(1.dp, Color(0xFFFFD700)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD700)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-            ) {
-                Text(
-                    text = Localization.translate("explore_courses_btn", langCode),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // YOU GET Checklist Block
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF120822)),
-            border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.2f)),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        tint = Color(0xFFFFD700),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = Localization.translate("you_get_title", langCode),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.sp
-                    )
-                }
-
-                val benefitsList = listOf(
-                    Localization.translate("benefit_1", langCode),
-                    Localization.translate("benefit_2", langCode),
-                    Localization.translate("benefit_3", langCode),
-                    Localization.translate("benefit_4", langCode),
-                    Localization.translate("benefit_5", langCode),
-                    Localization.translate("benefit_6", langCode),
-                    Localization.translate("benefit_7", langCode)
-                )
-                benefitsList.forEach { benefit ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = benefit,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun RightPanelSection(
-    onShowBenefit: (String, String) -> Unit,
-    langCode: String = "en"
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // Code Block Window (Interactive Code Console)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF1E1E1E))
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)), RoundedCornerShape(16.dp))
-        ) {
-            Column {
-                // Title bar with dots
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF252526))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFEF4444)))
-                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFFBBF24)))
-                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF10B981)))
-                    }
-                    Text(
-                        text = "KodeMamas.js",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-
-                // Code contents
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Row {
-                        Text(text = "const ", color = Color(0xFFF472B6), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = "KodeMamas = {", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    Row {
-                        Text(text = "  mission: ", color = Color(0xFFFFD700), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = "\"Digital inclusion\"", color = Color(0xFF34D399), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = ",", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    Row {
-                        Text(text = "  focus: ", color = Color(0xFFFFD700), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = "\"Women in tech\"", color = Color(0xFF34D399), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = ",", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    Row {
-                        Text(text = "  impact: ", color = Color(0xFFFFD700), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = "\"Stronger communities\"", color = Color(0xFF34D399), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = ",", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    Row {
-                        Text(text = "  future: ", color = Color(0xFFFFD700), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Text(text = "\"Limitless\"", color = Color(0xFF34D399), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    Text(text = "};", color = Color.White, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                }
-            }
-        }
-
-        // LEARN TOP SKILLS Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B0B30).copy(alpha = 0.3f)),
-            border = BorderStroke(1.dp, Color(0xFF6D28D9).copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = Localization.translate("learn_top_skills", langCode),
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val skillBadges = listOf(
-                        "HTML" to Color(0xFFFF5722),
-                        "CSS" to Color(0xFF2196F3),
-                        "JS" to Color(0xFFFFEB3B),
-                        "Python" to Color(0xFF4CAF50)
-                    )
-                    skillBadges.forEach { (name, color) ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(color.copy(alpha = 0.15f))
-                                .border(BorderStroke(1.dp, color), RoundedCornerShape(8.dp))
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = name,
-                                color = if (color == Color(0xFFFFEB3B)) Color.White else color,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // AI ASSISTANT Info Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF120822)),
-            border = BorderStroke(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.3f)),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF8B5CF6).copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Android,
-                        contentDescription = null,
-                        tint = Color(0xFF8B5CF6),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Column {
-                    Text(text = Localization.translate("ai_assistant_title", langCode), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = Localization.translate("ai_assistant_desc", langCode),
-                        color = Color.White.copy(alpha = 0.65f),
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp
-                    )
-                }
-            }
-        }
-
-        // Quote bubble card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 20.dp, topStart = 20.dp, topEnd = 20.dp))
-                .background(Color(0xFF130925))
-                .border(BorderStroke(1.dp, Color(0xFF8B5CF6)), RoundedCornerShape(bottomStart = 20.dp, topStart = 20.dp, topEnd = 20.dp))
-                .padding(14.dp)
-        ) {
-            Column {
-                Text(
-                    text = Localization.translate("student_quote", langCode),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = Localization.translate("student_quote_author", langCode),
-                    color = Color(0xFFFFD700),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.End)
-                )
-            }
-        }
-
-        // Horizontally Scrollable Premium Features cards at the bottom of the section
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = "PREMIUM OPPORTUNITIES 👑",
-                color = Color(0xFFFFD700),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            val premiums = listOf(
-                "1-on-1 Mentorship" to "Connect directly with leading South African female developers. Get weekly code reviews, private Q&A sessions, and career coaching tailored for township and rural learners.",
-                "CV & Resume Help" to "Learn how to format your coding milestones into a high-impact tech biography. We help you highlight your local Capstone projects (like Spaza storefronts) to impress recruiters.",
-                "Interview Prep" to "Receive mock interviews and technical voice-prep to tackle junior engineer loops with confidence. Master algorithms and behavioral questions easily.",
-                "Career Guidance" to "Explore 10 South African career roadmaps, salaries, and hotspot cities. Align your course milestones with local market demands.",
-                "Internships & Jobs" to "Access exclusive community job boards and township internships. Enter placement pathways designed with local South African technology corporate partners.",
-                "Networking Opportunities" to "Join virtual circles and community hackathons. Exchange tips, collaborate on group projects, and build lifelong technical sisterhood."
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                premiums.forEach { (name, description) ->
-                    Box(
-                        modifier = Modifier
-                            .width(140.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF22113D))
-                            .border(BorderStroke(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.5f)), RoundedCornerShape(12.dp))
-                            .clickable { onShowBenefit(name, description) }
-                            .padding(10.dp)
-                    ) {
-                        Column(
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.height(60.dp)
-                        ) {
-                            Text(text = name, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(text = "Learn more →", color = Color(0xFFFFD700), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AfricanQueenIllustration() {
-    Box(
-        modifier = Modifier
-            .size(220.dp)
-            .aspectRatio(1f)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val centerX = w / 2f
-            val centerY = h / 2f
-            
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFFF007F).copy(alpha = 0.35f), Color(0xFF4B0082).copy(alpha = 0.12f), Color.Transparent),
-                    center = Offset(centerX, centerY),
-                    radius = w * 0.48f
-                )
-            )
-            
-            drawCircle(
-                color = Color(0xFF1E0B36),
-                radius = w * 0.38f,
-                center = Offset(centerX, centerY)
-            )
-            
-            val neckPath = Path().apply {
-                moveTo(centerX - w*0.08f, centerY + h*0.12f)
-                lineTo(centerX - w*0.06f, centerY + h*0.35f)
-                lineTo(centerX + w*0.08f, centerY + h*0.35f)
-                lineTo(centerX + w*0.06f, centerY + h*0.12f)
-                close()
-            }
-            drawPath(neckPath, color = Color(0xFF5D4037))
-            
-            drawRoundRect(
-                color = Color(0xFFFFD700),
-                topLeft = Offset(centerX - w*0.09f, centerY + h*0.22f),
-                size = Size(w * 0.18f, h * 0.03f),
-                cornerRadius = CornerRadius(w*0.015f, h*0.015f)
-            )
-            drawRoundRect(
-                color = Color(0xFFFFA000),
-                topLeft = Offset(centerX - w*0.08f, centerY + h*0.27f),
-                size = Size(w * 0.16f, h * 0.03f),
-                cornerRadius = CornerRadius(w*0.015f, h*0.015f)
-            )
-            
-            val facePath = Path().apply {
-                moveTo(centerX, centerY - h*0.15f)
-                quadraticTo(centerX + w*0.18f, centerY - h*0.10f, centerX + w*0.15f, centerY)
-                lineTo(centerX + w*0.22f, centerY + h*0.03f)
-                lineTo(centerX + w*0.14f, centerY + h*0.07f)
-                quadraticTo(centerX + w*0.18f, centerY + h*0.10f, centerX + w*0.11f, centerY + h*0.12f)
-                lineTo(centerX + w*0.08f, centerY + h*0.17f)
-                lineTo(centerX - w*0.1f, centerY + h*0.15f)
-                lineTo(centerX - w*0.09f, centerY + h*0.05f)
-                lineTo(centerX - w*0.1f, centerY - h*0.05f)
-                close()
-            }
-            drawPath(facePath, color = Color(0xFF4E342E))
-            
-            val wrap1 = Path().apply {
-                moveTo(centerX - w*0.22f, centerY - h*0.04f)
-                quadraticTo(centerX - w*0.28f, centerY - h*0.28f, centerX, centerY - h*0.36f)
-                quadraticTo(centerX + w*0.22f, centerY - h*0.25f, centerX + w*0.11f, centerY - h*0.08f)
-                lineTo(centerX - w*0.05f, centerY - h*0.12f)
-                close()
-            }
-            drawPath(wrap1, color = Color(0xFF9C27B0))
-            
-            val wrap2 = Path().apply {
-                moveTo(centerX - w*0.18f, centerY - h*0.14f)
-                quadraticTo(centerX - w*0.15f, centerY - h*0.42f, centerX + w*0.05f, centerY - h*0.40f)
-                quadraticTo(centerX + w*0.18f, centerY - h*0.30f, centerX + w*0.08f, centerY - h*0.12f)
-                close()
-            }
-            drawPath(wrap2, color = Color(0xFFE91E63))
-            
-            val stripe = Path().apply {
-                moveTo(centerX - w*0.12f, centerY - h*0.25f)
-                quadraticTo(centerX - w*0.06f, centerY - h*0.40f, centerX + w*0.1f, centerY - h*0.32f)
-                lineTo(centerX + w*0.07f, centerY - h*0.27f)
-                quadraticTo(centerX - w*0.05f, centerY - h*0.36f, centerX - w*0.1f, centerY - h*0.21f)
-                close()
-            }
-            drawPath(stripe, color = Color(0xFFFFD700))
-            
-            drawArc(
-                color = Color(0xFFFF9800),
-                startAngle = -120f,
-                sweepAngle = 70f,
-                useCenter = false,
-                topLeft = Offset(centerX - w*0.18f, centerY - h*0.46f),
-                size = Size(w * 0.35f, h * 0.25f)
-            )
-            
-            drawArc(
-                color = Color(0xFFFFD700),
-                startAngle = -100f,
-                sweepAngle = 40f,
-                useCenter = false,
-                topLeft = Offset(centerX - w*0.14f, centerY - h*0.48f),
-                size = Size(w * 0.28f, h * 0.20f)
-            )
-            
-            drawCircle(
-                color = Color(0xFFFFD700),
-                radius = w * 0.12f,
-                center = Offset(centerX - w*0.05f, centerY + h*0.08f),
-                style = Stroke(width = w * 0.024f)
-            )
-        }
-    }
-}
-
-// ---------------------- COMPONENT: SOUTH AFRICAN PAYMENT SIMULATOR ----------------------
-@Composable
-fun SouthAfricanPaymentDialog(
-    initialIsPremium: Boolean = true,
-    langCode: String = "en",
-    onDismiss: () -> Unit,
-    onPaymentSuccess: (isPremium: Boolean) -> Unit
-) {
-    var isPremiumChosen by remember { mutableStateOf(initialIsPremium) }
-    var selectedMethod by remember { mutableStateOf("capitec_pay") } // capitec_pay, ozow, credit_card, voucher
-    var cellNumber by remember { mutableStateOf("0723456789") }
-    var voucherCode by remember { mutableStateOf("") }
-    var selectedBank by remember { mutableStateOf("Capitec") } // Capitec, FNB, Standard Bank, Nedbank, ABSA
-    var cardNumber by remember { mutableStateOf("4000 1234 5678 9010") }
-    
-    var isProcessing by remember { mutableStateOf(false) }
-    var processingStep by remember { mutableStateOf("") }
-
-    // Start simulated payment steps
-    val coroutineScope = rememberCoroutineScope()
-
-    Dialog(onDismissRequest = { if (!isProcessing) onDismiss() }) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color.White)
-                .border(2.dp, ThemeIndigo, RoundedCornerShape(24.dp))
-                .padding(20.dp)
-        ) {
-            if (isProcessing) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CircularProgressIndicator(color = ThemeIndigo, strokeWidth = 4.dp)
-                    
-                    Text(
-                        text = processingStep,
-                        fontWeight = FontWeight.Bold,
-                        color = ThemeIndigo,
-                        fontSize = 15.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    Text(
-                        text = "Secured with South African Bank-Grade Encryption 🛡️",
-                        fontSize = 10.sp,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "KodeMamas Checkout 🇿🇦",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 18.sp,
-                                color = ThemeIndigo
-                            )
-                            Text(
-                                text = if (isPremiumChosen) "Unlimited AI + 1-on-1 Careers Mentorship" else "Unlimited AI Tutor + Complete Advanced Courses",
-                                fontSize = 10.sp,
-                                color = Color.Gray,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ThemeGold.copy(alpha = 0.2f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = if (isPremiumChosen) "R299" else "R99",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 16.sp,
-                                color = Color(0xFFD4AF37)
-                            )
-                        }
-                    }
-
-                    // Package Switcher Tabs
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFF3E8FF)) // Soft light purple
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (!isPremiumChosen) ThemeIndigo else Color.Transparent)
-                                .clickable { isPremiumChosen = false }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Plus • R99/m",
-                                color = if (!isPremiumChosen) Color.White else ThemeIndigo,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isPremiumChosen) ThemeIndigo else Color.Transparent)
-                                .clickable { isPremiumChosen = true }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Premium • R299/m",
-                                color = if (isPremiumChosen) Color.White else ThemeIndigo,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-
-                    Divider(color = Color.LightGray.copy(alpha = 0.5f))
-
-                    // Capitec Bank Details Box
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFE8F0FE))
-                            .border(1.5.dp, ThemeIndigo, RoundedCornerShape(12.dp))
-                            .padding(12.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "🏦 " + Localization.translate("capitec_title", langCode),
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 12.sp,
-                                    color = ThemeIndigo
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(ThemeGold)
-                                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "VERIFIED",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.sp,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                            Text(
-                                text = Localization.translate("account_info", langCode) + "\n" +
-                                       "Price: " + (if (isPremiumChosen) "R299" else "R99"),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.DarkGray,
-                                lineHeight = 15.sp
-                            )
-                            Text(
-                                text = "💡 " + Localization.translate("payment_inst", langCode),
-                                fontSize = 9.sp,
-                                color = ThemeIndigo,
-                                lineHeight = 12.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Text(
-                        text = "Select your preferred payment method:",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-
-                    // Payment Method Quick Selection Grid (2x2 or Scrollable Row)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(
-                            Triple("capitec_pay", "Capitec Pay", "📱"),
-                            Triple("ozow", "Ozow EFT", "⚡")
-                        ).forEach { (id, label, icon) ->
-                            val isSelected = selectedMethod == id
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) ThemeIndigo.copy(alpha = 0.12f) else Color(0xFFF5F5F5))
-                                    .border(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) ThemeIndigo else Color.LightGray,
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable { selectedMethod = id }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = icon, fontSize = 20.sp)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = label,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp,
-                                        color = if (isSelected) ThemeIndigo else Color.Black
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(
-                            Triple("credit_card", "Debit / Card", "💳"),
-                            Triple("voucher", "Store Voucher", "🎟️")
-                        ).forEach { (id, label, icon) ->
-                            val isSelected = selectedMethod == id
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) ThemeIndigo.copy(alpha = 0.12f) else Color(0xFFF5F5F5))
-                                    .border(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) ThemeIndigo else Color.LightGray,
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable { selectedMethod = id }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = icon, fontSize = 20.sp)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = label,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp,
-                                        color = if (isSelected) ThemeIndigo else Color.Black
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // DYNAMIC FORM CONTENTS
-                    when (selectedMethod) {
-                        "capitec_pay" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "Enter your mobile phone number linked to your Capitec Account:",
-                                    fontSize = 11.sp,
-                                    color = Color.Black
-                                )
-                                OutlinedTextField(
-                                    value = cellNumber,
-                                    onValueChange = { cellNumber = it },
-                                    label = { Text("Cellphone Number") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    singleLine = true
-                                )
-                                Text(
-                                    text = "💡 Instantly prompts your Capitec banking app. No card required! Extremely safe for township communities.",
-                                    fontSize = 10.sp,
-                                    color = ThemeIndigo,
-                                    lineHeight = 14.sp
-                                )
-                            }
-                        }
-                        "ozow" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "Select your bank for secure Instant EFT checkout via Ozow Secure Link:",
-                                    fontSize = 11.sp,
-                                    color = Color.Black
-                                )
-                                
-                                val banks = listOf("Capitec", "FNB", "Standard Bank", "Nedbank", "ABSA")
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    banks.forEach { bank ->
-                                        val isCurrent = selectedBank == bank
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(if (isCurrent) ThemeIndigo else Color(0xFFEEEEEE))
-                                                .clickable { selectedBank = bank }
-                                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                                        ) {
-                                            Text(
-                                                text = bank,
-                                                color = if (isCurrent) Color.White else Color.Black,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-                                Text(
-                                    text = "💡 Securely login to your banking portal to confirm immediately. Fully verified by SARB regulations.",
-                                    fontSize = 10.sp,
-                                    color = Color.DarkGray
-                                )
-                            }
-                        }
-                        "credit_card" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "Pay via PayFast Multi-card Secure portal:",
-                                    fontSize = 11.sp,
-                                    color = Color.Black
-                                )
-                                OutlinedTextField(
-                                    value = cardNumber,
-                                    onValueChange = { cardNumber = it },
-                                    label = { Text("Card Number (Visa / Mastercard)") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    singleLine = true
-                                )
-                                Text(
-                                    text = "💡 Fully 3D Secure verified and encrypted. Supports any South African debit/credit cards.",
-                                    fontSize = 10.sp,
-                                    color = Color.DarkGray
-                                )
-                            }
-                        }
-                        "voucher" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "Enter sponsored training code or Pep/Boxer offline-purchased KodeMamas Voucher:",
-                                    fontSize = 11.sp,
-                                    color = Color.Black
-                                )
-                                OutlinedTextField(
-                                    value = voucherCode,
-                                    onValueChange = { voucherCode = it },
-                                    placeholder = { Text("e.g. TOWNSHIP-MAMA-GRAD") },
-                                    label = { Text("Promo/Voucher Code") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    singleLine = true
-                                )
-                                Text(
-                                    text = "💡 Best for students who purchased a cash ticket training code at localized township retail centers.",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFD4AF37),
-                                    lineHeight = 14.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // ACTIONS
-                    Button(
-                        onClick = {
-                            coroutineScope.launch {
-                                isProcessing = true
-                                val priceString = if (isPremiumChosen) "R299" else "R99"
-                                when (selectedMethod) {
-                                    "capitec_pay" -> {
-                                        processingStep = "Initiating Capitec Pay request for $priceString..."
-                                        delay(1000)
-                                        processingStep = "Awaiting authorization in your banking app..."
-                                        delay(1400)
-                                        processingStep = "Approved! Finalizing secure token..."
-                                        delay(800)
-                                    }
-                                    "ozow" -> {
-                                        processingStep = "Redirecting securely to $selectedBank portal..."
-                                        delay(1000)
-                                        processingStep = "Authorizing instant EFT transfer of $priceString..."
-                                        delay(1400)
-                                        processingStep = "Payment received! Syncing with KodeMamas..."
-                                        delay(800)
-                                    }
-                                    "credit_card" -> {
-                                        processingStep = "Verifying 3D Secure / OTP validation..."
-                                        delay(1200)
-                                        processingStep = "Processing card authentication..."
-                                        delay(1200)
-                                        processingStep = "Authorized successfully!"
-                                        delay(600)
-                                    }
-                                    "voucher" -> {
-                                        processingStep = "Validating township voucher parameters..."
-                                        delay(1000)
-                                        processingStep = "Code verified & approved by Bloemfontein hub!"
-                                        delay(1000)
-                                    }
-                                }
-                                onPaymentSuccess(isPremiumChosen)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (selectedMethod == "voucher") {
-                                "Verify & Activate " + (if (isPremiumChosen) "Premium" else "Plus")
-                            } else {
-                                "Simulate Secure Payment • " + (if (isPremiumChosen) "R299" else "R99")
-                            },
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        border = BorderStroke(1.dp, Color.LightGray),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = "Cancel checkout", color = Color.Gray, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun OfflineStatusBanner(
-    isOnline: Boolean,
-    onToggleNetwork: () -> Unit,
-    langCode: String
-) {
-    if (!isOnline) {
-        var isDismissed by remember { mutableStateOf(false) }
-        if (!isDismissed) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("offline_status_banner"),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFFBEB)
-                ),
-                border = BorderStroke(1.dp, Color(0xFFFDE68A))
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(Color(0xFFFEF3C7)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "Offline Mode Information",
-                                tint = Color(0xFFD97706),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Zero-Data Offline Study Mode Active",
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E1B4B), // High contrast dark indigo/charcoal title
-                                fontSize = 13.sp
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Learn coding with zero mobile data charges! Lessons, quizzes, and the local playground are fully functional offline. Standard AI chat, live peer-to-peer matching, and forum posts are paused.",
-                                color = Color(0xFF1C1917), // High contrast very dark stone/charcoal body text for outdoor readability
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(
-                            onClick = { isDismissed = true },
-                            modifier = Modifier
-                                .height(36.dp)
-                                .testTag("dismiss_offline_banner_button")
-                        ) {
-                            Text("Keep Learning Offline", color = Color(0xFF451A03), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = onToggleNetwork,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFD97706)
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = Modifier
-                                .height(36.dp)
-                                .testTag("enable_online_mode_button")
-                        ) {
-                            Text("Go Online", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ---------------------- 100-DAY ONBOARDING JOURNEY UI COMPONENTS ----------------------
-
-@Composable
-fun OnboardingJourneyWidget(viewModel: MainViewModel, langCode: String) {
-    val completedPhases by viewModel.completedPhases.collectAsState()
-    val onboardingPhases = viewModel.onboardingPhases
-    
-    var selectedPhaseId by remember { mutableStateOf<String?>("assess") }
-    
-    LaunchedEffect(completedPhases) {
-        val nextIncomplete = onboardingPhases.firstOrNull { it.id !in completedPhases }?.id
-        if (nextIncomplete != null) {
-            selectedPhaseId = nextIncomplete
-        }
-    }
-    
-    val selectedPhase = onboardingPhases.find { it.id == selectedPhaseId } ?: onboardingPhases.first()
-    
-    // Dialog states for individual phase flows
-    var showGoalDialog by remember { mutableStateOf(false) }
-    var showStoryDialog by remember { mutableStateOf(false) }
-    var showPosterDialog by remember { mutableStateOf(false) }
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("onboarding_journey_widget"),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, ThemeCardBorder)
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "100-Day Study Onboarding 🇿🇦",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 15.sp,
-                        color = Color.Black
-                    )
-                    Text(
-                        text = "Joey Coleman's 8-Phase Learning Onboarding",
-                        fontSize = 10.sp,
-                        color = Color.Gray
-                    )
-                }
-                
-                // Progress count
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ThemeIndigo.copy(alpha = 0.1f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${completedPhases.size}/8 Phases Done",
-                        color = ThemeIndigo,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Progress Bar
-            val progress = completedPhases.size.toFloat() / 8f
-            LinearProgressIndicator(
-                progress = progress,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = if (progress == 1f) Color(0xFF10B981) else ThemeIndigo,
-                trackColor = Color(0xFFF3F2FF)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Scrollable Timeline Circles
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                onboardingPhases.forEach { phase ->
-                    val isCompleted = phase.id in completedPhases
-                    val isSelected = phase.id == selectedPhaseId
-                    val isCurrentFocus = onboardingPhases.firstOrNull { it.id !in completedPhases }?.id == phase.id
-                    
-                    val circleBg = when {
-                        isCompleted -> Color(0xFFD1FAE5) // light green
-                        isSelected -> ThemeIndigo
-                        isCurrentFocus -> Color(0xFFFEF3C7) // light gold
-                        else -> Color(0xFFF3F4F6) // light grey
-                    }
-                    
-                    val circleBorderColor = when {
-                        isSelected && isCompleted -> Color(0xFF10B981)
-                        isSelected -> ThemeIndigo
-                        isCurrentFocus -> Color(0xFFF59E0B)
-                        else -> Color.Transparent
-                    }
-                    
-                    val textColor = when {
-                        isSelected -> Color.White
-                        isCompleted -> Color(0xFF065F46)
-                        isCurrentFocus -> Color(0xFF92400E)
-                        else -> Color.Gray
-                    }
-                    
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(19.dp))
-                            .background(circleBg)
-                            .border(
-                                width = if (circleBorderColor != Color.Transparent) 2.dp else 0.dp,
-                                color = circleBorderColor,
-                                shape = RoundedCornerShape(19.dp)
-                            )
-                            .clickable { selectedPhaseId = phase.id }
-                            .testTag("phase_circle_${phase.id}"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isCompleted) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Completed",
-                                tint = Color(0xFF10B981),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        } else {
-                            Text(
-                                text = "${phase.phaseNumber}",
-                                fontWeight = FontWeight.Bold,
-                                color = textColor,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Selected Phase Card Details
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (selectedPhase.id in completedPhases) Color(0xFFF9FBF9) else Color(0xFFFAF9FF)
-                ),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = if (selectedPhase.id in completedPhases) Color(0xFFE6F4EA) else ThemeCardBorder.copy(alpha = 0.5f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = selectedPhase.name,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color.Black
-                        )
-                        
-                        // XP badge
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(
-                                    if (selectedPhase.id in completedPhases) Color(0xFFD1FAE5) else Color(0xFFFEF3C7)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "+${selectedPhase.xpReward} XP",
-                                color = if (selectedPhase.id in completedPhases) Color(0xFF065F46) else Color(0xFFB45309),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    // Emotional context
-                    Text(
-                        text = "Learner Feels: \"${selectedPhase.feeling}\"",
-                        fontSize = 11.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                        color = Color.DarkGray,
-                        fontWeight = FontWeight.Medium
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = selectedPhase.taskName,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Text(
-                        text = selectedPhase.taskDescription,
-                        fontSize = 11.sp,
-                        color = Color.Gray,
-                        lineHeight = 15.sp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // Action button
-                    if (selectedPhase.id in completedPhases) {
-                        Button(
-                            onClick = {},
-                            enabled = false,
-                            colors = ButtonDefaults.buttonColors(
-                                disabledContainerColor = Color(0xFFD1FAE5),
-                                disabledContentColor = Color(0xFF065F46)
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Phase Completed! +${selectedPhase.xpReward} XP Earned", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    } else {
-                        Button(
-                            onClick = {
-                                when (selectedPhase.id) {
-                                    "assess" -> showGoalDialog = true
-                                    "admit" -> {
-                                        viewModel.downloadAllLessons()
-                                    }
-                                    "affirm" -> showStoryDialog = true
-                                    "activate" -> {
-                                        viewModel.selectTab("learn")
-                                    }
-                                    "acclimate" -> {
-                                        viewModel.completeOnboardingPhase("acclimate")
-                                    }
-                                    "accomplish" -> {
-                                        viewModel.selectTab("learn")
-                                    }
-                                    "adopt" -> {
-                                        viewModel.selectTab("mentorship")
-                                        viewModel.completeOnboardingPhase("adopt")
-                                    }
-                                    "advocate" -> showPosterDialog = true
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ThemeIndigo
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("onboarding_action_button_${selectedPhase.id}")
-                        ) {
-                            Text(
-                                text = selectedPhase.actionText,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    // Interactive Phase Dialogs
-    if (showGoalDialog) {
-        GoalSettingDialog(
-            onDismiss = { showGoalDialog = false },
-            onSave = {
-                viewModel.completeOnboardingPhase("assess")
-                showGoalDialog = false
-            }
-        )
-    }
-    
-    if (showStoryDialog) {
-        SuccessStoryDialog(
-            onDismiss = { showStoryDialog = false },
-            onRead = {
-                viewModel.completeOnboardingPhase("affirm")
-                showStoryDialog = false
-            }
-        )
-    }
-    
-    if (showPosterDialog) {
-        InvitePosterDialog(
-            onDismiss = { showPosterDialog = false },
-            onShare = {
-                viewModel.completeOnboardingPhase("advocate")
-                showPosterDialog = false
-            }
-        )
-    }
-}
-
-@Composable
-fun GoalSettingDialog(
-    onDismiss: () -> Unit,
-    onSave: () -> Unit
-) {
-    var selectedGoalIndex by remember { mutableStateOf(0) }
-    val goals = listOf(
-        "Build a web storefront for my local Spaza shop / family business 🛒",
-        "Gain mobile development skills to work as a freelance programmer 💻",
-        "Introduce digital literacy and coding classes to my school/NGO 🏫",
-        "Master logic and technical problem solving to tutor kids 👩‍🎓"
-    )
-    
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .testTag("goal_setting_dialog"),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, ThemeCardBorder)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Confirm Your Onboarding Goal 🎯",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 16.sp,
-                    color = Color.Black
-                )
-                Text(
-                    text = "Phase 1: Assess • Review Your Motivation",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    goals.forEachIndexed { index, goal ->
-                        val isSelected = index == selectedGoalIndex
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) ThemeIndigo.copy(alpha = 0.08f) else Color.Transparent)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isSelected) ThemeIndigo else Color(0xFFEEEEEE),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .clickable { selectedGoalIndex = index }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = { selectedGoalIndex = index },
-                                colors = RadioButtonDefaults.colors(selectedColor = ThemeIndigo)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = goal,
-                                fontSize = 11.sp,
-                                color = Color.Black,
-                                lineHeight = 15.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = Color.Gray, fontSize = 12.sp)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = onSave,
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Lock in Goal (+20 XP)", fontSize = 12.sp, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SuccessStoryDialog(
-    onDismiss: () -> Unit,
-    onRead: () -> Unit
-) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .testTag("success_story_dialog"),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, ThemeCardBorder)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "Bloemfontein Sister Success Story 📖",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 16.sp,
-                    color = Color.Black
-                )
-                Text(
-                    text = "Phase 3: Affirm • See Real Proof",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-                
-                Spacer(modifier = Modifier.height(14.dp))
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(ThemeGold.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("TJ", fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
-                    }
-                    Column {
-                        Text("Mashiane TJ", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.Black)
-                        Text("Bloemfontein Hub Alumni • Spaza shop owner", fontSize = 10.sp, color = Color.Gray)
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Text(
-                    text = "\"I had zero tech experience. I sell fruits and vegetables in Bloemfontein. When Nokwazi introduced KodeMamas, I was overwhelmed. But downloading the lessons offline changed everything.\n\nToday, my spaza storefront is completely styled and mapped on a local offline web compiler, and my customers are amazed. If other South African mothers can do it, you can too, sister! Choose well, and keep building!\"",
-                    fontSize = 11.sp,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    color = Color.DarkGray,
-                    lineHeight = 16.sp
-                )
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Go Back", color = Color.Gray, fontSize = 12.sp)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = onRead,
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("I Can Do This! (+20 XP)", fontSize = 12.sp, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun InvitePosterDialog(
-    onDismiss: () -> Unit,
-    onShare: () -> Unit
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .testTag("invite_poster_dialog"),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, ThemeCardBorder)
-        ) {
-            Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Your Community Invitation Poster 📣",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 16.sp,
-                    color = Color.Black
-                )
-                Text(
-                    text = "Phase 8: Advocate • Spread the Sisterhood",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = ThemeDarkBg),
-                    border = BorderStroke(2.dp, ThemeGold)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "🇿🇦 KODEMAMAS SISTERHOOD 👩‍🎓",
-                            color = ThemeGold,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Learn to Code Offline – Zero Data Costs!",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                        Text(
-                            text = "Zulu • Xhosa • Afrikaans • isiNdebele & more",
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 9.sp
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Text(
-                            text = "Join using my referral code below:",
-                            color = Color.White,
-                            fontSize = 10.sp
-                        )
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ThemeGold.copy(alpha = 0.15f))
-                                .border(1.dp, ThemeGold, RoundedCornerShape(8.dp))
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "MAMA-7842-NALEDI",
-                                color = ThemeGold,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 14.sp,
-                                letterSpacing = 1.sp
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Close", color = Color.Gray, fontSize = 12.sp)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            android.widget.Toast.makeText(context, "Referral Code copied to clipboard! Share with your neighborhood sisterhood.", android.widget.Toast.LENGTH_LONG).show()
-                            onShare()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Share Code (+50 XP)", fontSize = 12.sp, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun OnboardingWinDialog(
-    phase: com.example.ui.OnboardingPhase,
-    onDismiss: () -> Unit
-) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .testTag("onboarding_win_dialog"),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(2.dp, ThemeGold)
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(36.dp))
-                        .background(ThemeGold.copy(alpha = 0.15f))
-                        .border(1.dp, ThemeGold, RoundedCornerShape(36.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "🏆",
-                        fontSize = 38.sp
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "HALALA, STUDY SISTER! 🎉",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 18.sp,
-                    color = Color.Black,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Text(
-                    text = "Phase Completed Successfully!",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = Color(0xFF10B981)
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFE6F4EA))
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "+${phase.xpReward} XP Awarded!",
-                        color = Color(0xFF137333),
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.sp
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = phase.taskName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = Color.Black
-                )
-                
-                Spacer(modifier = Modifier.height(6.dp))
-                
-                val motivationalText = when (phase.id) {
-                    "assess" -> "Fantastic choice! By committing to your goals, you've taken the first brave step on your 100-day journey. You chose well, sister!"
-                    "admit" -> "Amazing! Downloading lessons means you are completely prepared for offline township study with zero cellular billing."
-                    "affirm" -> "Inspirational! Real-world proof shows that other mothers are doing it. You are on the right path!"
-                    "activate" -> "Phenomenal! Running your first dynamic simulator script is a huge win. The machine translates your thoughts into real results!"
-                    "acclimate" -> "Brilliant! Reviewing your progress regularly is how habits are born. Consistency always beats intensity."
-                    "accomplish" -> "Superb! Passing the quiz means you are locking in solid, verified tech knowledge. You are becoming a master!"
-                    "adopt" -> "Magnificent! Connecting with study buddies is how we build township technical sisterhood. We grow further together."
-                    "advocate" -> "Heroic! By spreading the tech sisterhood, you are empowering other mothers and girls in your community to build their future."
-                    else -> "Keep learning and building! Each step brings you closer to your technical goals."
-                }
-                
-                Text(
-                    text = motivationalText,
-                    fontSize = 11.sp,
-                    color = Color.Gray,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    lineHeight = 16.sp
-                )
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = ThemeIndigo),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("dismiss_onboarding_win_button")
-                ) {
-                    Text("Continue My Journey 🚀", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
-                }
-            }
-        }
-    }
-}
-
-
-

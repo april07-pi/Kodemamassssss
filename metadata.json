@@ -1,6 +1,6 @@
 {
   "name": "KodeMamas",
-  "description": "Offline-first multilingual coding education platform for South African communities.",
+  "description": "Offline-first multilingual coding education platform for South African communities. Learn Python, HTML, CSS, JavaScript, and AI in 12 South African languages with interactive quizzes, mentorship, certificates, and township tech empowerment.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
