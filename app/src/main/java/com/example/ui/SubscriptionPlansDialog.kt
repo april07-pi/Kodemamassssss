@@ -32,6 +32,7 @@ import com.example.ui.theme.ThemeCardBorder
 import com.example.ui.theme.ThemeDarkBg
 import com.example.ui.theme.ThemeGold
 import com.example.ui.theme.ThemeIndigo
+import com.example.data.SecurityUtils
 
 @Composable
 fun SubscriptionPlansDialog(
@@ -123,12 +124,15 @@ fun SubscriptionPlansContent(
 ) {
     val currentPlan by viewModel.currentPlanTier.collectAsState()
     val paymentRef by viewModel.paymentReference.collectAsState()
+    val paymentStatus by viewModel.paymentStatus.collectAsState()
+    val isAdmin by viewModel.isAdmin.collectAsState()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
 
     var selectedTierForPayment by remember { mutableStateOf(if (currentPlan == "STANDARD") "STANDARD" else "PREMIUM") }
     var inputPaymentRef by remember { mutableStateOf(paymentRef) }
     var showSuccessBanner by remember { mutableStateOf(false) }
+    var inputError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -322,15 +326,17 @@ fun SubscriptionPlansContent(
                     Button(
                         onClick = {
                             selectedTierForPayment = "STANDARD"
-                            viewModel.activatePlan("STANDARD", inputPaymentRef.ifBlank { "CAPITEC_R99" })
-                            showSuccessBanner = true
-                            Toast.makeText(context, "Standard Plan (R99/yr) Activated! 🇿🇦", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Standard Plan selected. Transfer R99 to Capitec and enter EFT ref below.", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Activate Standard — R99/year", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            text = if (selectedTierForPayment == "STANDARD") "Selected: Standard — R99/yr 👇" else "Select Standard — R99/year",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -467,15 +473,17 @@ fun SubscriptionPlansContent(
                     Button(
                         onClick = {
                             selectedTierForPayment = "PREMIUM"
-                            viewModel.activatePlan("PREMIUM", inputPaymentRef.ifBlank { "CAPITEC_R299" })
-                            showSuccessBanner = true
-                            Toast.makeText(context, "Premium Plan (R299/yr) Activated! 🌟", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Premium Plan selected. Transfer R299 to Capitec and enter EFT ref below.", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Upgrade to Premium — R299/year 👑", fontWeight = FontWeight.Black, color = Color.Black)
+                        Text(
+                            text = if (selectedTierForPayment == "PREMIUM") "Selected: Premium — R299/yr 👇" else "Select Premium — R299/year 👑",
+                            fontWeight = FontWeight.Black,
+                            color = Color.Black
+                        )
                     }
                 }
             }
@@ -624,9 +632,10 @@ fun SubscriptionPlansContent(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "1. Open your Capitec app or any banking app (FNB, Standard Bank, Nedbank, Absa, TymeBank)\n" +
-                           "2. Transfer R99 (Standard) or R299 (Premium) to Account: 2121743886\n" +
+                           "2. Transfer R99 (Standard) or R299 (Premium) to Capitec Account: 2121743886 (Branch: 470010)\n" +
                            "3. Use your name or mobile number as the payment reference\n" +
-                           "4. Enter reference below or tap activate to unlock all courses immediately!",
+                           "4. Copy your bank transaction reference from your receipt or SMS notification\n" +
+                           "5. Enter the reference below and tap Verify & Submit to activate.",
                     fontSize = 11.sp,
                     color = Color.DarkGray,
                     lineHeight = 16.sp
@@ -634,14 +643,77 @@ fun SubscriptionPlansContent(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Payment Reference Input & Instant Activation
-                Text("Activate via Payment Reference / Instant Confirmation:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                // Current verification status card
+                if (paymentStatus != "NONE" && currentPlan != "FREE") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (paymentStatus == "VERIFIED") Color(0xFFE8F5E9) else Color(0xFFFFF8E1))
+                            .border(1.dp, if (paymentStatus == "VERIFIED") Color(0xFF81C784) else Color(0xFFFFD54F), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (paymentStatus == "VERIFIED") Icons.Default.CheckCircle else Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = if (paymentStatus == "VERIFIED") Color(0xFF2E7D32) else Color(0xFFF57F17),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (paymentStatus == "VERIFIED") "✅ $currentPlan Plan Verified & Active" else "⏳ Payment Pending Verification ($currentPlan)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = if (paymentStatus == "VERIFIED") Color(0xFF2E7D32) else Color(0xFFF57F17)
+                                )
+                            }
+                            if (paymentRef.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Recorded EFT Ref: $paymentRef", fontSize = 11.sp, color = Color.DarkGray)
+                            }
+                            if (isAdmin && paymentStatus == "PENDING_VERIFICATION") {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Button(
+                                    onClick = {
+                                        viewModel.verifyPaymentByAdmin()
+                                        Toast.makeText(context, "Admin verified payment!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Approve Payment (Founder & Admin)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+
+                // Payment Reference Input & Strict Verification
+                Text("Submit Bank EFT Reference to Unlock Plan:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Selected Tier: $selectedTierForPayment (${if (selectedTierForPayment == "STANDARD") "R99/year" else "R299/year"})",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selectedTierForPayment == "STANDARD") Color(0xFF2E7D32) else Color(0xFFDAA520)
+                )
                 Spacer(modifier = Modifier.height(6.dp))
 
                 OutlinedTextField(
                     value = inputPaymentRef,
-                    onValueChange = { inputPaymentRef = it },
-                    placeholder = { Text("e.g. Capitec EFT Ref, Cash Send, or your mobile #", fontSize = 11.sp) },
+                    onValueChange = {
+                        inputPaymentRef = it
+                        if (inputError != null) inputError = null
+                    },
+                    isError = inputError != null,
+                    label = { Text("Capitec / Bank Payment Reference", fontSize = 11.sp) },
+                    placeholder = { Text("e.g. CAP-88492048 or KM-NOKWAZI-99", fontSize = 11.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
@@ -651,37 +723,54 @@ fun SubscriptionPlansContent(
                     )
                 )
 
+                if (inputError != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = inputError ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Row(
+                Button(
+                    onClick = {
+                        val trimmed = inputPaymentRef.trim()
+                        if (!SecurityUtils.isValidPaymentReference(trimmed)) {
+                            inputError = "⚠️ Please enter a valid bank transaction reference (min 6 characters) from your Capitec transfer receipt. Blank or dummy references cannot activate plans."
+                            Toast.makeText(context, "Invalid payment reference", Toast.LENGTH_LONG).show()
+                            return@Button
+                        }
+                        inputError = null
+                        val success = viewModel.submitPaymentReference(selectedTierForPayment, trimmed)
+                        if (success) {
+                            showSuccessBanner = true
+                            Toast.makeText(context, "$selectedTierForPayment reference recorded for verification! 🇿🇦", Toast.LENGTH_LONG).show()
+                        } else {
+                            inputError = "Payment reference rejected. Please check your bank transaction code."
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selectedTierForPayment == "STANDARD") Color(0xFF2E7D32) else ThemeGold
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            val ref = inputPaymentRef.ifBlank { "CAPITEC_R99_${System.currentTimeMillis().toString().takeLast(4)}" }
-                            viewModel.activatePlan("STANDARD", ref)
-                            Toast.makeText(context, "Standard Plan (R99) confirmed and active! 🇿🇦", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Pay Standard R99", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-
-                    Button(
-                        onClick = {
-                            val ref = inputPaymentRef.ifBlank { "CAPITEC_R299_${System.currentTimeMillis().toString().takeLast(4)}" }
-                            viewModel.activatePlan("PREMIUM", ref)
-                            Toast.makeText(context, "Premium Plan (R299) confirmed and active! 🌟", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = ThemeGold),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Pay Premium R299", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.Black)
-                    }
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = if (selectedTierForPayment == "STANDARD") Color.White else Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Verify & Submit $selectedTierForPayment Payment Reference",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedTierForPayment == "STANDARD") Color.White else Color.Black
+                    )
                 }
 
                 if (currentPlan != "FREE") {
@@ -689,6 +778,8 @@ fun SubscriptionPlansContent(
                     TextButton(
                         onClick = {
                             viewModel.downgradeToFree()
+                            inputPaymentRef = ""
+                            inputError = null
                             Toast.makeText(context, "Plan reset to free trial mode", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth()

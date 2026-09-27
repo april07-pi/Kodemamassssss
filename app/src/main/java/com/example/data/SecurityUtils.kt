@@ -259,10 +259,38 @@ object SecurityUtils {
                 .header("X-XSS-Protection", "1; mode=block")
                 .header("Referrer-Policy", "strict-origin-when-cross-origin")
                 .header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-                .header("User-Agent", "KodeMamas-SecureAndroid/1.2.1")
+                .header("User-Agent", "KodeMamas-SecureAndroid/1.2.2")
                 .build()
 
             return chain.proceed(secureRequest)
         }
+    }
+
+    // =========================================================================
+    // 7. PAYMENT REFERENCE VALIDATION & TIGHTENING
+    // =========================================================================
+
+    /**
+     * Strictly validates a South African EFT / Capitec transaction reference.
+     * Rejects empty, blank, dummy, or bypass strings to protect subscription tiers.
+     */
+    fun isValidPaymentReference(ref: String): Boolean {
+        val trimmed = ref.trim()
+        if (trimmed.length < 6 || trimmed.length > 40) return false
+        val lower = trimmed.lowercase()
+
+        val blockedKeywords = listOf(
+            "test", "free", "admin", "bypass", "abc", "none", "12345", "000000",
+            "fake", "demo", "sample", "null", "undefined", "capitec_r99", "capitec_r299", "qwerty"
+        )
+        if (blockedKeywords.any { lower == it }) return false
+
+        // Must contain alphanumeric characters (may contain dashes, underscores, slashes, spaces)
+        val validPattern = Regex("^[A-Za-z0-9_\\-\\s/]{6,40}$")
+        if (!validPattern.matches(trimmed)) return false
+
+        // Must have at least 3 digits or letters to not be just symbols/spaces
+        val alphanumericCount = trimmed.count { it.isLetterOrDigit() }
+        return alphanumericCount >= 5
     }
 }

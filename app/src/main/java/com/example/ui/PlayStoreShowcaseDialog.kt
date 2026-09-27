@@ -89,12 +89,12 @@ fun PlayStoreShowcaseDialog(
         ),
         FeatureShowcaseItem(
             title = "Township Tech Mentorship",
-            subtitle = "Community circle & 1-on-1 advice",
-            annotation = "Connect directly with solo founder and tech mentor Nokwazi Nobuhle Xaba in Bloemfontein, ask questions, and network.",
+            subtitle = "Direct 1-on-1 founder & mentor guidance",
+            annotation = "Connect directly with solo founder & tech mentor Nokwazi Nobuhle Xaba in Bloemfontein for authentic personalized code reviews and tech career guidance.",
             icon = Icons.Default.Groups,
-            badge = "1-ON-1 MENTORSHIP",
-            useCase = "Get practical mentorship on how to land junior developer roles, internships, and remote freelancing work.",
-            mockSnippet = "👩🏽‍💻 Solo Tech Mentor (Nokwazi Xaba, Bloemfontein):\n\"Your Python logic is sharp sharp! Let's polish your portfolio for junior tech roles.\"",
+            badge = "FOUNDER MENTORSHIP",
+            useCase = "Get practical mentorship on full-stack development, portfolio building, and landing remote freelancing opportunities.",
+            mockSnippet = "👩🏽‍💻 Solo Tech Mentor Nokwazi Nobuhle Xaba:\n\"Sawubona! Let's review your project architecture and get your Android/Python portfolio industry-ready.\"",
             targetTab = "mentorship"
         ),
         FeatureShowcaseItem(

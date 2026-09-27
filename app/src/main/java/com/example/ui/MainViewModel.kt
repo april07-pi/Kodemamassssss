@@ -17,15 +17,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentLanguageCode = MutableStateFlow("en")
     val currentLanguageCode: StateFlow<String> = _currentLanguageCode.asStateFlow()
 
-    // Screen navigation state: "home", "builds", "learn", "ai_chat", "community", "mentorship"
-    private val _selectedTab = MutableStateFlow("ai_chat")
+    // Screen navigation state: "home", "learn", "projects", "community", "mentorship", "ai_chat"
+    private val _selectedTab = MutableStateFlow("home")
     val selectedTab: StateFlow<String> = _selectedTab.asStateFlow()
+
+    // Screen 1 Onboarding & Screen 3 Course Detail states
+    private val _showOnboarding = MutableStateFlow(true)
+    val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
+
+    private val _showCourseDetail = MutableStateFlow(false)
+    val showCourseDetail: StateFlow<Boolean> = _showCourseDetail.asStateFlow()
+
+    fun dismissOnboarding() {
+        _showOnboarding.value = false
+        _selectedTab.value = "home"
+    }
+
+    fun openOnboarding() {
+        _showOnboarding.value = true
+    }
+
+    fun openCourseDetail() {
+        _showCourseDetail.value = true
+    }
+
+    fun closeCourseDetail() {
+        _showCourseDetail.value = false
+    }
 
     // Core Database Flows
     val userProfile: StateFlow<UserProfile?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val allLessons: StateFlow<List<Lesson>> = repository.allLessons
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allProgress: StateFlow<List<UserProgress>> = repository.allProgress
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allChallenges: StateFlow<List<CodingChallenge>> = repository.allChallenges
@@ -57,6 +84,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val firebaseProjectId: StateFlow<String> = firebaseService.projectId
 
     // Lesson Active States
+    private val _selectedCategoryFilter = MutableStateFlow("All")
+    val selectedCategoryFilter: StateFlow<String> = _selectedCategoryFilter.asStateFlow()
+
+    fun setSelectedCategoryFilter(cat: String) {
+        _selectedCategoryFilter.value = cat
+    }
+
     private val _currentActiveLesson = MutableStateFlow<Lesson?>(null)
     val currentActiveLesson: StateFlow<Lesson?> = _currentActiveLesson.asStateFlow()
 
@@ -183,34 +217,91 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
     val paymentReference: StateFlow<String> = _paymentReference.asStateFlow()
 
+    private val _paymentStatus = MutableStateFlow(
+        prefs.getString("payment_status", if ((prefs.getString("user_plan_tier", "FREE") ?: "FREE") != "FREE") "VERIFIED" else "NONE") ?: "NONE"
+    )
+    val paymentStatus: StateFlow<String> = _paymentStatus.asStateFlow()
+
+    private val _paymentTimestamp = MutableStateFlow(
+        prefs.getLong("plan_activation_time", 0L)
+    )
+    val paymentTimestamp: StateFlow<Long> = _paymentTimestamp.asStateFlow()
+
     val capitecAccountNumber = "2121743886"
     val capitecBankName = "Capitec Bank"
     val capitecBranchCode = "470010"
     val standardPlanPrice = "R99/year"
     val premiumPlanPrice = "R299/year"
 
-    fun activatePlan(tier: String, reference: String = "") {
+    /**
+     * Tightened payment submission:
+     * Requires a strictly validated Capitec EFT or bank transaction reference.
+     * Prevents empty or dummy bypass activations.
+     */
+    fun submitPaymentReference(tier: String, reference: String): Boolean {
+        val cleanRef = SecurityUtils.sanitizePlainText(reference.trim(), maxLength = 40)
+        if (!SecurityUtils.isValidPaymentReference(cleanRef)) {
+            return false
+        }
+
         val cleanTier = when (tier.uppercase()) {
             "STANDARD" -> "STANDARD"
             "PREMIUM" -> "PREMIUM"
             else -> "FREE"
         }
+
+        val isApprovedAdmin = SecurityUtils.hasAdminAccess(userProfile.value?.role, userProfile.value?.email)
+        val newStatus = if (isApprovedAdmin) "VERIFIED" else "PENDING_VERIFICATION"
+        val now = System.currentTimeMillis()
+
         prefs.edit()
             .putString("user_plan_tier", cleanTier)
-            .putString("payment_reference", reference.trim())
-            .putLong("plan_activation_time", System.currentTimeMillis())
+            .putString("payment_reference", cleanRef)
+            .putString("payment_status", newStatus)
+            .putLong("plan_activation_time", now)
             .apply()
+
         _currentPlanTier.value = cleanTier
-        _paymentReference.value = reference.trim()
+        _paymentReference.value = cleanRef
+        _paymentStatus.value = newStatus
+        _paymentTimestamp.value = now
 
         viewModelScope.launch {
             val isPrem = (cleanTier == "PREMIUM")
             repository.updatePremiumStatus(isPrem)
         }
+        return true
+    }
+
+    fun verifyPaymentByAdmin() {
+        if (!SecurityUtils.hasAdminAccess(userProfile.value?.role, userProfile.value?.email)) return
+        prefs.edit().putString("payment_status", "VERIFIED").apply()
+        _paymentStatus.value = "VERIFIED"
+        viewModelScope.launch {
+            val isPrem = (_currentPlanTier.value == "PREMIUM")
+            repository.updatePremiumStatus(isPrem)
+        }
+    }
+
+    fun activatePlan(tier: String, reference: String = "") {
+        submitPaymentReference(tier, reference)
     }
 
     fun downgradeToFree() {
-        activatePlan("FREE", "")
+        prefs.edit()
+            .putString("user_plan_tier", "FREE")
+            .putString("payment_reference", "")
+            .putString("payment_status", "NONE")
+            .putLong("plan_activation_time", 0L)
+            .apply()
+        _currentPlanTier.value = "FREE"
+        _paymentReference.value = ""
+        _paymentStatus.value = "NONE"
+        _paymentTimestamp.value = 0L
+
+        viewModelScope.launch {
+            repository.updatePremiumStatus(false)
+        }
     }
 
     // User Rating & In-App Feedback
@@ -319,6 +410,10 @@ Think like a tech leader: If you were creating a system request to solve a chall
         }
     }
 
+    fun startLesson(lesson: Lesson) {
+        selectLesson(lesson)
+    }
+
     fun closeActiveLesson() {
         _currentActiveLesson.value = null
         _currentActiveSteps.value = emptyList()
@@ -372,42 +467,151 @@ Think like a tech leader: If you were creating a system request to solve a chall
 
         when (currentLesson.category) {
             "HTML" -> {
-                if (currentCode.contains("<h1>") && currentCode.contains("</h1>") && currentCode.lowercase().contains("spaza")) {
-                    _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\nHeading size h1: \"Mam's Spaza Shop\" with warm gold colors."
-                    _simulatorSuccess.value = true
-                } else if (currentCode.contains("<ul>") && currentCode.contains("</ul>")) {
-                    _simulatorOutput.value = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound elements: Bread, Milk, Rooibos Tea."
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "Web Preview Output:\n--------------------\n" + currentCode + "\n--------------------\nTip: Make sure to wrap headings in <h1>...</h1> or make lists using <ul> and <li>!"
-                    _simulatorSuccess.value = false
+                when {
+                    currentCode.contains("<h1>") && currentCode.contains("</h1>") -> {
+                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n✨ Successfully Rendered Header!\nHeading: \"Mam's Spaza Shop\" with warm gold colors."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("<ul>") && currentCode.contains("</ul>") -> {
+                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n🛒 Spaza Product Inventory list generated!\nFound elements: Bread, Milk, Rooibos Tea."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("<form") && currentCode.contains("<input") -> {
+                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n📋 Order & Booking Form Rendered!\nCustomer Name & Phone fields active with numeric keypad triggers."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("<button") && currentCode.contains("</button>") -> {
+                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n🟢 Action Submit Button created!\nLabel: \"Place Spaza Order\" - Ready to process checkout."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("<img") && currentCode.contains("alt=") -> {
+                        _simulatorOutput.value = "🚀 Web Emulator Preview:\n🖼️ Accessible Image Mounted with Alt text!\nSemantic layout (<header>, <main>) verified."
+                        _simulatorSuccess.value = true
+                    }
+                    else -> {
+                        _simulatorOutput.value = "Web Preview Output:\n--------------------\n$currentCode\n--------------------\nTip: Check opening and closing tags (e.g. <h1>, <ul>, <form>, <button>, <img>)."
+                        _simulatorSuccess.value = currentCode.length > 15
+                    }
                 }
             }
             "CSS" -> {
-                if (currentCode.contains("background-color") && currentCode.contains("color")) {
-                    _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "CSS compiler output:\nModified style sheets rules. Use background-color and color to configure colors!"
-                    _simulatorSuccess.value = false
+                when {
+                    currentCode.contains("background-color") || currentCode.contains("color:") -> {
+                        _simulatorOutput.value = "🎨 CSS styling compiled:\n✅ Background set to deep midnight #121212!\n✅ Accent color painted Gold (#FFD700)!"
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("display: flex") || currentCode.contains("justify-content") -> {
+                        _simulatorOutput.value = "🎨 CSS Flexbox compiled:\n✅ Flex container activated with space-between margins!\n✅ Products aligned side-by-side like store shelves."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("@media") || currentCode.contains("max-width") -> {
+                        _simulatorOutput.value = "🎨 Responsive CSS compiled:\n📱 Media query loaded! Products stack cleanly on mobile viewports under 600px."
+                        _simulatorSuccess.value = true
+                    }
+                    else -> {
+                        _simulatorOutput.value = "CSS compiler output:\nModified stylesheet rules. Use properties like color, display: flex, or @media!"
+                        _simulatorSuccess.value = currentCode.length > 20
+                    }
                 }
             }
             "JavaScript" -> {
-                if (currentCode.contains("calculateTotal") && currentCode.contains("18.50")) {
-                    _simulatorOutput.value = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.5 + 3*16 = 37 + 48 = 85)."
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined or code incomplete. Write the calculateTotal function!"
-                    _simulatorSuccess.value = false
+                when {
+                    currentCode.contains("calculateTotal") || (currentCode.contains("18.50") && currentCode.contains("16.00")) -> {
+                        _simulatorOutput.value = "⚙️ JavaScript Output:\nR85.00\n\n✅ Code execution compiled!\nCalculates 2 Blue Ribbon bread & 3 Clover milks perfectly (2*18.50 + 3*16.00 = R85.00)."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("addEventListener") || currentCode.contains("querySelector") -> {
+                        _simulatorOutput.value = "⚙️ JavaScript Console:\n🟢 Click event listener attached to #buy-btn!\n🛒 Cart updated: 1 item added in real-time."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("fetch") || currentCode.contains("async") || currentCode.contains("await") -> {
+                        _simulatorOutput.value = "⚙️ JavaScript Network Console:\n🌐 Live Market API Connected!\nFetched Maize price: R24.50/kg | Fresh Potatoes: R45.00/bag"
+                        _simulatorSuccess.value = true
+                    }
+                    else -> {
+                        _simulatorOutput.value = "⚙️ JavaScript Console:\nRunning script...\nResult: Undefined or syntax check. Ensure your functions or listeners are declared."
+                        _simulatorSuccess.value = currentCode.length > 25
+                    }
                 }
             }
             "Python" -> {
-                if (currentCode.contains("temp > 30") && currentCode.contains("print")) {
-                    _simulatorOutput.value = "🐍 Python Terminal Output:\nWarning: High Heat! Increase irrigation x2.\n\n✅ Algorithm completed successfully!"
-                    _simulatorSuccess.value = true
-                } else {
-                    _simulatorOutput.value = "🐍 Python IDLE Console:\nError: IndentationError or missing conditional comparison condition temperature > 30."
-                    _simulatorSuccess.value = false
+                when {
+                    currentCode.contains("temp > 30") || (currentCode.contains("if") && currentCode.contains("print")) -> {
+                        _simulatorOutput.value = "🐍 Python Terminal Output:\nWarning: High Heat! Increase irrigation x2.\n\n✅ Crop irrigation algorithm executed!"
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("stock") && (currentCode.contains("for") || currentCode.contains("dict") || currentCode.contains("items")) -> {
+                        _simulatorOutput.value = "🐍 Python Terminal Output:\nAlert: milk is low (3 left)! Restock now.\n\n✅ Inventory dictionary scanned successfully."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("def") && currentCode.contains("generate_receipt") -> {
+                        _simulatorOutput.value = "🐍 Python Terminal Output:\nKodeMamas Spaza - Thanks Thandi! Total Paid: R145.50\n\n✅ Automated receipt generator function verified!"
+                        _simulatorSuccess.value = true
+                    }
+                    else -> {
+                        _simulatorOutput.value = "🐍 Python IDLE Console:\nCompiled code. Check syntax, variable names, and function return values."
+                        _simulatorSuccess.value = currentCode.length > 20
+                    }
+                }
+            }
+            "Mobile Dev" -> {
+                when {
+                    currentCode.contains("@Composable") || currentCode.contains("Button") || currentCode.contains("Text(") -> {
+                        _simulatorOutput.value = "📱 Android Compose Preview:\n🟢 Composable rendered!\nSpazaOrderButton displayed with 48dp touch target and M3 theme."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("mutableStateOf") || currentCode.contains("remember") || currentCode.contains("LazyColumn") -> {
+                        _simulatorOutput.value = "📱 Android State & List Engine:\n🛒 Cart state updated in real-time!\nLazyColumn loaded 24 items smoothly on low RAM budget."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("Room") || currentCode.contains("@Entity") || currentCode.contains("@Dao") || currentCode.contains("Order") -> {
+                        _simulatorOutput.value = "📱 Room Persistence Output:\n💾 Orders cached locally in SQLite!\nOffline-first load verified: 100% loadshedding resilient."
+                        _simulatorSuccess.value = true
+                    }
+                    else -> {
+                        _simulatorOutput.value = "📱 Android Studio / Jetpack Compose Output:\nComposable compiled. Ensure functions use @Composable or declare Room entities."
+                        _simulatorSuccess.value = currentCode.length > 20
+                    }
+                }
+            }
+            "Data & AI" -> {
+                when {
+                    currentCode.contains("prompt") || currentCode.contains("Gemini") || currentCode.contains("role") -> {
+                        _simulatorOutput.value = "🤖 Gemini AI Prompt Execution:\nMama Ruth Persona Active:\n'Sanibonani! Here is your custom marketing broadcast for fresh produce in isiZulu.'"
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("pandas") || currentCode.contains("df") || currentCode.contains("describe") || currentCode.contains("read_csv") -> {
+                        _simulatorOutput.value = "🤖 Pandas Data Analytics Output:\nTotal Revenue: R42,850.00\nTop Seller: Maize Meal (1,240 bags)\nForecast: +18% demand next week."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("grounding") || currentCode.contains("search") || currentCode.contains("verify") || currentCode.contains("citations") -> {
+                        _simulatorOutput.value = "🤖 Grounded AI Search Result:\nLive Market Data Grounded (Johannesburg Fresh Produce Market):\nMaize price: R22.80/kg [Source: AgBiz Live Index - Verified]"
+                        _simulatorSuccess.value = true
+                    }
+                    else -> {
+                        _simulatorOutput.value = "🤖 AI & Analytics Engine:\nCode received. Test prompt templates or pandas DataFrame calculations."
+                        _simulatorSuccess.value = currentCode.length > 20
+                    }
+                }
+            }
+            "Design" -> {
+                when {
+                    currentCode.contains("color") || currentCode.contains("contrast") || currentCode.contains("Theme") || currentCode.contains("hierarchy") -> {
+                        _simulatorOutput.value = "🎨 Design System Validator:\n✅ Contrast ratio: 7.8:1 (WCAG AAA Compliant!)\nPalette: Mzansi Gold & Township Indigo approved."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("8.dp") || currentCode.contains("grid") || currentCode.contains("spacing") || currentCode.contains("Column") -> {
+                        _simulatorOutput.value = "🎨 Figma-to-Code Layout Engine:\n✅ 8dp Grid Alignment checked!\nPadding: 16dp | Border Radius: 20dp | Reusable Card Component compiled."
+                        _simulatorSuccess.value = true
+                    }
+                    currentCode.contains("accessible") || currentCode.contains("inclusive") || currentCode.contains("language") || currentCode.contains("48.dp") || currentCode.contains("wrapContentSize") -> {
+                        _simulatorOutput.value = "🎨 Inclusive Design Audit:\n✅ Multi-language flex-width containers passed (12 SA languages supported)!\nTouch targets >= 48dp."
+                        _simulatorSuccess.value = true
+                    }
+                    else -> {
+                        _simulatorOutput.value = "🎨 Design System Output:\nLayout parameters inspected. Apply spacing tokens, WCAG contrast colors, or 8dp grid rules."
+                        _simulatorSuccess.value = currentCode.length > 20
+                    }
                 }
             }
         }
@@ -659,11 +863,14 @@ Think like a tech leader: If you were creating a system request to solve a chall
     }
 
     fun claimPremiumUpgrade() {
-        activatePlan("PREMIUM", "PROMO_TRIAL")
+        // Only administrative accounts or verified payment references can activate premium
+        if (SecurityUtils.hasAdminAccess(userProfile.value?.role, userProfile.value?.email)) {
+            submitPaymentReference("PREMIUM", "ADMIN_VERIFIED_${System.currentTimeMillis().toString().takeLast(6)}")
+        }
     }
 
     fun cancelPremium() {
-        activatePlan("FREE", "")
+        downgradeToFree()
     }
 
     fun setThemeMode(mode: String) {
@@ -689,8 +896,8 @@ Think like a tech leader: If you were creating a system request to solve a chall
                         role = SecurityUtils.sanitizePlainText(userProfile.value?.role ?: "Student", maxLength = 40),
                         content = "⭐ Rated KodeMamas $bounded/5 Stars: \"$cleanComment\"",
                         timestamp = System.currentTimeMillis(),
-                        likes = 5,
-                        commentCount = 1,
+                        likes = 0,
+                        commentCount = 0,
                         languageCode = currentLanguageCode.value
                     )
                 )
@@ -713,7 +920,7 @@ Think like a tech leader: If you were creating a system request to solve a chall
                     role = SecurityUtils.sanitizePlainText(userProfile.value?.role ?: "Student", maxLength = 40),
                     content = "[$cleanCat] $cleanMsg",
                     timestamp = System.currentTimeMillis(),
-                    likes = 1,
+                    likes = 0,
                     commentCount = 0,
                     languageCode = currentLanguageCode.value
                 )

@@ -22,31 +22,34 @@ data class KodeMamasColors(
   val cardBorder: Color,
   val textPrimary: Color,
   val textSecondary: Color,
-  val brandPurple: Color = Color(0xFF6F1FA8),
-  val brandGold: Color = Color(0xFFFFB300),
+  val brandPurple: Color = KodeMamasPurple,
+  val brandGold: Color = KodeMamasGold,
+  val brandMagenta: Color = KodeMamasMagenta,
+  val brandPink: Color = KodeMamasPink,
+  val brandCoral: Color = KodeMamasCoral,
   val bottomNavBackground: Color
 )
 
 val LocalKodeMamasColors = staticCompositionLocalOf {
   KodeMamasColors(
     isDark = true,
-    background = Color(0xFF150624),
-    surface = Color(0xFF220C38),
-    surfaceVariant = Color(0xFF321250),
-    cardBorder = Color(0xFF4B1E78),
+    background = KodeMamasDeepBg,
+    surface = KodeMamasSurface,
+    surfaceVariant = KodeMamasSurfaceCard,
+    cardBorder = KodeMamasBorder,
     textPrimary = Color.White,
-    textSecondary = Color(0xFFD4C7E6),
-    bottomNavBackground = Color(0xFF1B072F)
+    textSecondary = KodeMamasLavender,
+    bottomNavBackground = Color(0xFF100322)
   )
 }
 
 private val DarkColorScheme =
   darkColorScheme(
-    primary = BrandPurplePrimary,
-    secondary = BrandPurpleCard,
-    tertiary = BrandGoldAccent,
-    background = BrandPurpleDarkBg,
-    surface = BrandPurpleCard,
+    primary = KodeMamasPurple,
+    secondary = KodeMamasSurface,
+    tertiary = KodeMamasGold,
+    background = KodeMamasDeepBg,
+    surface = KodeMamasSurface,
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.Black,
@@ -56,16 +59,16 @@ private val DarkColorScheme =
 
 private val LightColorScheme =
   lightColorScheme(
-    primary = BrandPurplePrimary,
-    secondary = BrandPurpleCard,
-    tertiary = BrandGoldAccent,
-    background = Color(0xFFFAF6FF), // Soft lavender white
+    primary = KodeMamasPurple,
+    secondary = Color(0xFFF3F4F6),
+    tertiary = KodeMamasGold,
+    background = Color(0xFFF9FAFB), // Clean modern white-gray
     surface = Color.White,
     onPrimary = Color.White,
-    onSecondary = Color.Black,
+    onSecondary = Color(0xFF111827),
     onTertiary = Color.Black,
-    onBackground = Color(0xFF0C0714),
-    onSurface = Color(0xFF0C0714)
+    onBackground = Color(0xFF111827),
+    onSurface = Color(0xFF111827)
   )
 
 @Composable
@@ -89,23 +92,33 @@ fun MyApplicationTheme(
   val customColors = if (darkTheme) {
     KodeMamasColors(
       isDark = true,
-      background = Color(0xFF150624),
-      surface = Color(0xFF220C38),
-      surfaceVariant = Color(0xFF321250),
-      cardBorder = Color(0xFF4B1E78),
+      background = KodeMamasDeepBg,
+      surface = KodeMamasSurface,
+      surfaceVariant = KodeMamasSurfaceCard,
+      cardBorder = KodeMamasBorder,
       textPrimary = Color.White,
-      textSecondary = Color(0xFFD4C7E6),
-      bottomNavBackground = Color(0xFF1B072F)
+      textSecondary = KodeMamasLavender,
+      brandPurple = KodeMamasPurple,
+      brandGold = KodeMamasGold,
+      brandMagenta = KodeMamasMagenta,
+      brandPink = KodeMamasPink,
+      brandCoral = KodeMamasCoral,
+      bottomNavBackground = Color(0xFF100322)
     )
   } else {
     KodeMamasColors(
       isDark = false,
-      background = Color(0xFFF7F4FD),
+      background = Color(0xFFF9FAFB),
       surface = Color.White,
-      surfaceVariant = Color(0xFFEDE7F6),
-      cardBorder = Color(0xFFE5DEFA),
-      textPrimary = Color(0xFF1F122E),
-      textSecondary = Color(0xFF6B5C80),
+      surfaceVariant = Color(0xFFF3F4F6),
+      cardBorder = Color(0xFFE5E7EB),
+      textPrimary = Color(0xFF111827),
+      textSecondary = Color(0xFF4B5563),
+      brandPurple = KodeMamasPurple,
+      brandGold = KodeMamasGold,
+      brandMagenta = KodeMamasMagenta,
+      brandPink = KodeMamasPink,
+      brandCoral = KodeMamasCoral,
       bottomNavBackground = Color.White
     )
   }

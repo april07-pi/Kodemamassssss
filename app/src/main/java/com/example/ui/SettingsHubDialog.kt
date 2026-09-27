@@ -401,7 +401,7 @@ fun SettingsHubDialog(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "v1.2.1 (Build 26) • ASO Optimized • Offline-First",
+                                text = "v1.2.2 (Build 27) • ASO Optimized • Offline-First",
                                 fontSize = 10.sp,
                                 color = colors.textSecondary.copy(alpha = 0.7f)
                             )

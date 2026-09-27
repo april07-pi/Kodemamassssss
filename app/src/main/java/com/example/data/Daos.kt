@@ -48,6 +48,9 @@ interface LessonDao {
     @Query("UPDATE lessons SET isUnlocked = :unlocked WHERE id = :lessonId")
     suspend fun updateUnlockedStatus(lessonId: String, unlocked: Boolean)
 
+    @Query("SELECT COUNT(*) FROM lessons")
+    suspend fun getLessonCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLessons(lessons: List<Lesson>)
 }

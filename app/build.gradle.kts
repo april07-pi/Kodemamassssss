@@ -14,8 +14,8 @@ android {
     applicationId = "com.aistudio.kodemamas.hftxyz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 26
-    versionName = "1.2.1"
+    versionCode = 31
+    versionName = "1.4.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

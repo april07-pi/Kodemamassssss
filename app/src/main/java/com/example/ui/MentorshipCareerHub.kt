@@ -1204,7 +1204,7 @@ fun ProjectReviewsScreen(onBack: () -> Unit) {
         CareerSubScreenHeader(title = "Technical Project Reviews 🔍", onBack = onBack)
 
         Text(
-            text = "Submit your GitHub repository or offline project archive for detailed code review by senior engineers.",
+            text = "Submit your GitHub repository or offline project archive for detailed code review by solo founder & tech mentor Nokwazi Nobuhle Xaba.",
             fontSize = 12.sp,
             color = Color.DarkGray
         )
