@@ -101,7 +101,9 @@ fun KodeMamasMonogramLogo(modifier: Modifier = Modifier, sizeDp: Int = 44) {
 fun OnboardingHeroIllustration(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(310.dp)
+            .fillMaxWidth(0.72f)
+            .widthIn(max = 280.dp)
+            .aspectRatio(1f)
             .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -745,7 +747,8 @@ fun KodeMamasOnboardingView(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -828,53 +831,56 @@ fun KodeMamasOnboardingView(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // Feature Highlights Pills (Zulu/Xhosa, Offline Mode, Mentorship)
-                Row(
+                LazyRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFF1F0933),
-                        border = BorderStroke(1.dp, Color(0x33FFFFFF))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF1F0933),
+                            border = BorderStroke(1.dp, Color(0x33FFFFFF))
                         ) {
-                            Text(text = "🗣️ 12 SA Languages", fontSize = 11.sp, color = Color(0xFFE2E8F0))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "🗣️ 12 SA Languages", fontSize = 11.sp, color = Color(0xFFE2E8F0))
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFF1F0933),
-                        border = BorderStroke(1.dp, Color(0x33FFFFFF))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF1F0933),
+                            border = BorderStroke(1.dp, Color(0x33FFFFFF))
                         ) {
-                            Text(text = "📶 " + com.example.ui.theme.Localization.translate("offline_first", langCode), fontSize = 11.sp, color = Color(0xFFFBBF24))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "📶 " + com.example.ui.theme.Localization.translate("offline_first", langCode), fontSize = 11.sp, color = Color(0xFFFBBF24))
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFF1F0933),
-                        border = BorderStroke(1.dp, Color(0x33FFFFFF))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF1F0933),
+                            border = BorderStroke(1.dp, Color(0x33FFFFFF))
                         ) {
-                            Text(text = "👭 " + com.example.ui.theme.Localization.translate("sisterhood", langCode), fontSize = 11.sp, color = Color(0xFFFA4D89))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "👭 " + com.example.ui.theme.Localization.translate("sisterhood", langCode), fontSize = 11.sp, color = Color(0xFFFA4D89))
+                            }
                         }
                     }
                 }
@@ -992,9 +998,9 @@ fun KodeMamasHomeView(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0C0219))
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp)
     ) {
         // 1. Top Header: "Hello, Mama! 👋" & Avatar/Bell
         item {
@@ -1003,7 +1009,7 @@ fun KodeMamasHomeView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
                         text = com.example.ui.theme.Localization.translate("hello_mama", langCode),
                         color = Color.White,
@@ -1018,6 +1024,8 @@ fun KodeMamasHomeView(
                         fontWeight = FontWeight.Normal
                     )
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1106,7 +1114,7 @@ fun KodeMamasHomeView(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Keep going, you're doing amazing!",
+                                text = com.example.ui.theme.Localization.translate("keep_going", langCode),
                                 color = Color(0xFFFDE68A),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -1123,7 +1131,7 @@ fun KodeMamasHomeView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Weekly Progress",
+                            text = com.example.ui.theme.Localization.translate("weekly_progress", langCode),
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
@@ -1167,12 +1175,12 @@ fun KodeMamasHomeView(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "7 lessons completed",
+                            text = com.example.ui.theme.Localization.translate("lessons_completed_count", langCode),
                             color = Color(0xFFC4B5DC),
                             fontSize = 12.sp
                         )
                         Text(
-                            text = "3 to go",
+                            text = com.example.ui.theme.Localization.translate("lessons_to_go", langCode),
                             color = Color(0xFFC4B5DC),
                             fontSize = 12.sp
                         )
@@ -1190,13 +1198,13 @@ fun KodeMamasHomeView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Continue Learning",
+                        text = com.example.ui.theme.Localization.translate("continue_learning", langCode),
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "View all",
+                        text = com.example.ui.theme.Localization.translate("view_all", langCode),
                         color = Color(0xFFFA4D89),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -1244,7 +1252,7 @@ fun KodeMamasHomeView(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Introduction to Web Development",
+                                text = com.example.ui.theme.Localization.getLessonTitle("html_1", langCode),
                                 color = Color.White,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1253,7 +1261,7 @@ fun KodeMamasHomeView(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Lesson 9 of 12",
+                                text = com.example.ui.theme.Localization.getLessonSubtitle("html_1", langCode),
                                 color = Color(0xFFC4B5DC),
                                 fontSize = 12.sp
                             )
@@ -1284,7 +1292,7 @@ fun KodeMamasHomeView(
         item {
             Column {
                 Text(
-                    text = "Explore Categories",
+                    text = com.example.ui.theme.Localization.translate("explore_categories", langCode),
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -1292,12 +1300,18 @@ fun KodeMamasHomeView(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                val catWebDev = com.example.ui.theme.Localization.translate("cat_web_dev", langCode)
+                val catMobileDev = com.example.ui.theme.Localization.translate("cat_mobile_dev", langCode)
+                val catDataAi = com.example.ui.theme.Localization.translate("cat_data_ai", langCode)
+                val catDesign = com.example.ui.theme.Localization.translate("cat_design", langCode)
+                val catMore = com.example.ui.theme.Localization.translate("cat_more", langCode)
+
                 val categories = listOf(
-                    Triple("Web Dev", "</>", Color(0xFF7C22CE)),
-                    Triple("Mobile Dev", "📱", Color(0xFF0284C7)),
-                    Triple("Data & AI", "🤖", Color(0xFF10B981)),
-                    Triple("Design", "🎨", Color(0xFFF59E0B)),
-                    Triple("More", "...", Color(0xFF6B7280))
+                    Triple(catWebDev, "</>", Color(0xFF7C22CE)),
+                    Triple(catMobileDev, "📱", Color(0xFF0284C7)),
+                    Triple(catDataAi, "🤖", Color(0xFF10B981)),
+                    Triple(catDesign, "🎨", Color(0xFFF59E0B)),
+                    Triple(catMore, "...", Color(0xFF6B7280))
                 )
 
                 LazyRow(
@@ -1316,22 +1330,21 @@ fun KodeMamasHomeView(
                                 .clickable {
                                     selectedCategory = name
                                     when (name) {
-                                        "Mobile Dev" -> {
+                                        catMobileDev, "Mobile Dev" -> {
                                             viewModel.setSelectedCategoryFilter("Mobile Dev")
                                             viewModel.closeCourseDetail()
                                             viewModel.selectTab("learn")
                                         }
-                                        "Data & AI" -> {
-                                            viewModel.setSelectedCategoryFilter("Data & AI")
+                                        catDataAi, "Data & AI" -> {
                                             viewModel.closeCourseDetail()
-                                            viewModel.selectTab("learn")
+                                            onNavigateToAiChat()
                                         }
-                                        "Design" -> {
+                                        catDesign, "Design" -> {
                                             viewModel.setSelectedCategoryFilter("Design")
                                             viewModel.closeCourseDetail()
                                             viewModel.selectTab("learn")
                                         }
-                                        "Web Dev" -> {
+                                        catWebDev, "Web Dev" -> {
                                             viewModel.setSelectedCategoryFilter("HTML")
                                             viewModel.closeCourseDetail()
                                             viewModel.selectTab("learn")
@@ -1393,7 +1406,10 @@ fun KodeMamasHomeView(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(42.dp)
@@ -1412,22 +1428,23 @@ fun KodeMamasHomeView(
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f, fill = false)) {
                                 Text(
-                                    text = "Mama Ruth AI Assistant",
+                                    text = com.example.ui.theme.Localization.translate("mama_ruth_ai", langCode),
                                     color = Color.White,
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Google Gemini + Live Google Search",
+                                    text = com.example.ui.theme.Localization.translate("gemini_search_subtitle", langCode),
                                     color = Color(0xFFFDE68A),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.width(6.dp))
 
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -1446,7 +1463,7 @@ fun KodeMamasHomeView(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "ONLINE",
+                                    text = com.example.ui.theme.Localization.translate("online_status", langCode).uppercase(),
                                     color = Color(0xFF34D399),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Black
@@ -1458,7 +1475,7 @@ fun KodeMamasHomeView(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Ask coding questions, fix code bugs, or get technical mentorship in all 12 official South African languages (isiZulu, isiXhosa, Afrikaans, Sepedi, English) with zero English barrier.",
+                        text = com.example.ui.theme.Localization.translate("ai_banner_desc", langCode),
                         color = Color(0xFFE2E8F0),
                         fontSize = 12.sp,
                         lineHeight = 17.sp
@@ -1466,12 +1483,12 @@ fun KodeMamasHomeView(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Language chips row
-                    Row(
+                    // Language chips row (horizontally scrollable to avoid clipping on small devices)
+                    LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        listOf("🇿🇦 isiZulu", "🇿🇦 isiXhosa", "🇿🇦 Afrikaans", "🇿🇦 Sepedi", "🇬🇧 English").forEach { langTag ->
+                        items(listOf("🇿🇦 isiZulu", "🇿🇦 isiXhosa", "🇿🇦 Afrikaans", "🇿🇦 Sepedi", "🇬🇧 English")) { langTag ->
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = Color(0xFF2E094E),
@@ -1514,7 +1531,7 @@ fun KodeMamasHomeView(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "Ask Mama Ruth in Your Language →",
+                                    text = com.example.ui.theme.Localization.translate("ask_in_language", langCode),
                                     color = Color.White,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
@@ -1536,35 +1553,78 @@ fun KodeMamasHomeView(
                     .fillMaxWidth()
                     .testTag("home_project_banner")
             ) {
-                Row(
-                    modifier = Modifier.padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Build projects.\nSolve real problems.\nChange your world.",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 22.sp
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Button(
-                            onClick = onStartProject,
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val stackLayout = maxWidth < 420.dp
+                    if (stackLayout) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.Start
                         ) {
                             Text(
-                                text = "Start a Project →",
-                                color = Color(0xFF1B0630),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold
+                                text = com.example.ui.theme.Localization.translate("start_project_banner", langCode),
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 21.sp
                             )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = onStartProject,
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = com.example.ui.theme.Localization.translate("start_project_btn", langCode),
+                                    color = Color(0xFF1B0630),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                HomeProjectBannerIllustration()
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = com.example.ui.theme.Localization.translate("start_project_banner", langCode),
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    lineHeight = 22.sp
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Button(
+                                    onClick = onStartProject,
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = com.example.ui.theme.Localization.translate("start_project_btn", langCode),
+                                        color = Color(0xFF1B0630),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            HomeProjectBannerIllustration()
                         }
                     }
-
-                    HomeProjectBannerIllustration()
                 }
             }
         }
@@ -1595,13 +1655,13 @@ fun KodeMamasHomeView(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "You don't have to do it alone.",
+                            text = com.example.ui.theme.Localization.translate("mentorship_promo_title", langCode),
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Join our 1-on-1 Mentorship Program",
+                            text = com.example.ui.theme.Localization.translate("mentorship_promo_sub", langCode),
                             color = Color(0xFFC4B5DC),
                             fontSize = 11.sp
                         )
@@ -1681,9 +1741,9 @@ fun KodeMamasCourseDetailView(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(bottom = 88.dp)
         ) {
             // Course Icon Badge & Category
             item {
@@ -1747,7 +1807,10 @@ fun KodeMamasCourseDetailView(
 
                     // Chips row: 12 Lessons | Beginner | ⭐ 4.8 (320)
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
@@ -1982,7 +2045,7 @@ fun KodeMamasCourseDetailView(
                                         }
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = localizedTitle,
                                             color = Color(0xFF1F2937),
@@ -2024,6 +2087,7 @@ fun KodeMamasMentorshipProgramView(
 ) {
     var isFavorite by remember { mutableStateOf(false) }
     val currentPlan by viewModel.currentPlanTier.collectAsState()
+    val langCode by viewModel.currentLanguageCode.collectAsState()
     val context = LocalContext.current
 
     Scaffold(
@@ -2087,13 +2151,13 @@ fun KodeMamasMentorshipProgramView(
                     ) {
                         Column {
                             Text(
-                                text = "R299 / month",
+                                text = com.example.ui.theme.Localization.translate("monthly_price", langCode),
                                 color = Color.White,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                             Text(
-                                text = "Cancel anytime. No lock-in.",
+                                text = com.example.ui.theme.Localization.translate("cancel_anytime", langCode),
                                 color = Color(0xFFC4B5DC),
                                 fontSize = 11.sp
                             )
@@ -2121,7 +2185,7 @@ fun KodeMamasMentorshipProgramView(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = if (currentPlan == "PREMIUM") "Active Member ✓" else "Join the Program",
+                                        text = if (currentPlan == "PREMIUM") com.example.ui.theme.Localization.translate("active_member", langCode) else com.example.ui.theme.Localization.translate("join_program", langCode),
                                         color = Color.White,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
@@ -2141,7 +2205,7 @@ fun KodeMamasMentorshipProgramView(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "🔒 Safe. Supportive. Township-rooted.",
+                        text = com.example.ui.theme.Localization.translate("safe_township", langCode),
                         color = Color(0xFFC4B5DC).copy(alpha = 0.8f),
                         fontSize = 11.sp,
                         textAlign = TextAlign.Center,
@@ -2168,7 +2232,7 @@ fun KodeMamasMentorshipProgramView(
                         border = BorderStroke(1.dp, Color(0xFFFA4D89).copy(alpha = 0.4f))
                     ) {
                         Text(
-                            text = "MENTORSHIP PROGRAM",
+                            text = com.example.ui.theme.Localization.translate("mentorship_title", langCode).uppercase(),
                             color = Color(0xFFFA4D89),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -2179,23 +2243,8 @@ fun KodeMamasMentorshipProgramView(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Headline: "You don't have to do it alone." with highlighted 'alone.'
-                    val annotatedHeadline = buildAnnotatedString {
-                        append("You don't have to\n")
-                        append("do it ")
-                        withStyle(
-                            style = SpanStyle(
-                                color = Color(0xFFFA4D89),
-                                textDecoration = TextDecoration.Underline,
-                                fontWeight = FontWeight.Black
-                            )
-                        ) {
-                            append("alone.")
-                        }
-                    }
-
                     Text(
-                        text = annotatedHeadline,
+                        text = com.example.ui.theme.Localization.translate("mentorship_promo_title", langCode),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
@@ -2205,7 +2254,7 @@ fun KodeMamasMentorshipProgramView(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Get guidance. Stay accountable.\nBuild your future with the right support.",
+                        text = com.example.ui.theme.Localization.translate("mentorship_tagline", langCode),
                         color = Color(0xFFC4B5DC),
                         fontSize = 14.sp,
                         lineHeight = 20.sp
@@ -2225,24 +2274,24 @@ fun KodeMamasMentorshipProgramView(
                     MentorshipBenefitCard(
                         icon = "💬",
                         iconColor = Color(0xFFE02885),
-                        title = "1-on-1 Mentorship",
-                        description = "Personalized guidance from experienced tech mentors."
+                        title = com.example.ui.theme.Localization.translate("one_on_one", langCode),
+                        description = com.example.ui.theme.Localization.translate("one_on_one_desc", langCode)
                     )
 
                     // Benefit 2: Career Support
                     MentorshipBenefitCard(
                         icon = "💼",
                         iconColor = Color(0xFF10B981),
-                        title = "Career Support",
-                        description = "CV reviews, interview prep and job placement support."
+                        title = com.example.ui.theme.Localization.translate("careers", langCode),
+                        description = com.example.ui.theme.Localization.translate("career_support_desc", langCode)
                     )
 
                     // Benefit 3: Community Access
                     MentorshipBenefitCard(
                         icon = "👥",
                         iconColor = Color(0xFFF97316),
-                        title = "Community Access",
-                        description = "Join a network of ambitious mamas and tech professionals."
+                        title = com.example.ui.theme.Localization.translate("community", langCode),
+                        description = com.example.ui.theme.Localization.translate("community_access_desc", langCode)
                     )
                 }
             }
@@ -2354,10 +2403,12 @@ fun OfficialKodeMamasBottomBar(
                 label = {
                     Text(
                         text = label,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) Color(0xFFFA4D89) else if (route == "ai_chat") Color(0xFFFDE68A) else Color(0xFFC4B5DC).copy(alpha = 0.7f),
-                        maxLines = 1
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

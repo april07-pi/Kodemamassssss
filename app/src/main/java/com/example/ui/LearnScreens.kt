@@ -52,17 +52,21 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
     }
 
     val selectedCategory by viewModel.selectedCategoryFilter.collectAsState()
-    val categories = listOf("All", "HTML", "CSS", "JavaScript", "Python", "Mobile Dev", "Data & AI", "Design")
+    val categories = listOf("All", "HTML", "CSS", "JavaScript", "Python", "Mobile Dev", "Design")
 
-    val filteredLessons = remember(lessons, selectedCategory) {
-        if (selectedCategory == "All") lessons
-        else lessons.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+    val codingLessons = remember(lessons) {
+        lessons.filter { it.category != "Data & AI" }
     }
 
-    val totalLessons = lessons.size.coerceAtLeast(1)
+    val filteredLessons = remember(codingLessons, selectedCategory) {
+        if (selectedCategory == "All") codingLessons
+        else codingLessons.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+    }
+
+    val totalLessons = codingLessons.size.coerceAtLeast(1)
     val completedCount = completedLessonIds.size
     val progressFraction = (completedCount.toFloat() / totalLessons.toFloat()).coerceIn(0f, 1f)
-    val allDownloaded = lessons.isNotEmpty() && lessons.all { it.isDownloaded }
+    val allDownloaded = codingLessons.isNotEmpty() && codingLessons.all { it.isDownloaded }
 
     Column(
         modifier = Modifier
@@ -112,7 +116,10 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -128,7 +135,7 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
                             Text(
                                 text = Localization.translate("curriculum_progress", langCode),
                                 fontSize = 14.sp,
@@ -142,6 +149,8 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     // Percentage Badge
                     Box(
@@ -222,7 +231,7 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
         ) {
             items(categories) { cat ->
                 val isSelected = selectedCategory == cat
-                val count = if (cat == "All") lessons.size else lessons.count { it.category.equals(cat, ignoreCase = true) }
+                val count = if (cat == "All") codingLessons.size else codingLessons.count { it.category.equals(cat, ignoreCase = true) }
                 val displayLabel = when (cat) {
                     "All" -> Localization.translate("all_categories", langCode)
                     "HTML" -> Localization.translate("cat_html", langCode)
@@ -230,7 +239,6 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
                     "JavaScript" -> Localization.translate("cat_js", langCode)
                     "Python" -> Localization.translate("cat_python", langCode)
                     "Mobile Dev" -> Localization.translate("cat_mobile_dev", langCode)
-                    "Data & AI" -> Localization.translate("cat_data_ai", langCode)
                     "Design" -> Localization.translate("cat_design", langCode)
                     else -> cat
                 }
@@ -258,12 +266,62 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Dedicated Mama Ruth AI Helper Bar (Data & AI)
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = ThemeIndigo.copy(alpha = 0.08f),
+            border = BorderStroke(1.dp, ThemeIndigo.copy(alpha = 0.25f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { viewModel.selectTab("ai_chat") }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Text(text = "🤖", fontSize = 16.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "${Localization.translate("cat_data_ai", langCode)} • ${Localization.translate("mama_ruth_ai", langCode)}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = Localization.translate("ask_in_language", langCode),
+                            fontSize = 10.sp,
+                            color = ThemeIndigo,
+                            maxLines = 1
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "→",
+                    fontWeight = FontWeight.Bold,
+                    color = ThemeIndigo,
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Lesson Cards List
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 28.dp),
+            contentPadding = PaddingValues(bottom = 88.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(filteredLessons) { lesson ->
@@ -385,29 +443,14 @@ private fun LessonItemCard(
 
                 // Lesson Titles & Category Info
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = lesson.category,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isUnlocked) ThemeIndigo else Color.Gray
-                        )
-                        Text(text = "•", fontSize = 10.sp, color = colors.textSecondary)
-                        Text(
-                            text = "${lesson.durationMinutes} mins",
-                            fontSize = 10.sp,
-                            color = colors.textSecondary
-                        )
-                        Text(text = "•", fontSize = 10.sp, color = colors.textSecondary)
-                        Text(
-                            text = lesson.difficulty,
-                            fontSize = 10.sp,
-                            color = colors.textSecondary
-                        )
-                    }
+                    Text(
+                        text = "${lesson.category} • ${lesson.durationMinutes} mins • ${lesson.difficulty}",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isUnlocked) ThemeIndigo else Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
                     Spacer(modifier = Modifier.height(3.dp))
 
@@ -425,7 +468,7 @@ private fun LessonItemCard(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (isUnlocked) ThemeIndigo else Color.LightGray,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -705,6 +748,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -734,7 +778,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
-                                    text = "STEP ${step.stepNumber}: OBJECTIVE",
+                                    text = "${com.example.ui.theme.Localization.translate("step", langCode).uppercase()} ${step.stepNumber}",
                                     color = ThemeIndigo,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Black
@@ -748,7 +792,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
-                                    text = if (step.completionRequirement == "RUN_CODE") "Hands-on Code" else "Core Concept",
+                                    text = if (step.completionRequirement == "RUN_CODE") com.example.ui.theme.Localization.translate("hands_on_code", langCode) else com.example.ui.theme.Localization.translate("core_concept", langCode),
                                     color = Color(0xFF92400E),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
@@ -1154,7 +1198,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                     }
 
                                     Text(
-                                        text = "Assessment Mode",
+                                        text = com.example.ui.theme.Localization.translate("assessment_mode", langCode),
                                         fontSize = 11.sp,
                                         color = colors.textSecondary
                                     )
@@ -1162,8 +1206,9 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
+                                val localizedQuestion = if (langCode == "en") activeQ.question else com.example.ui.theme.Localization.getQuizQuestion(activeQ.id, langCode, activeQ.question, activeQ.questionLocalized)
                                 Text(
-                                    text = activeQ.question,
+                                    text = localizedQuestion,
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = colors.textPrimary,
@@ -1171,18 +1216,12 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                 )
 
                                 if (langCode != "en") {
-                                    val localizedQ = Localization.getQuizQuestion(
-                                        quizId = activeQ.id,
-                                        lang = langCode,
-                                        englishQ = activeQ.question,
-                                        zuluQ = activeQ.questionLocalized
-                                    )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = localizedQ,
-                                        color = ThemeIndigo,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
+                                        text = "🇬🇧 ${activeQ.question}",
+                                        color = colors.textSecondary.copy(alpha = 0.7f),
+                                        fontSize = 12.sp,
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                                     )
                                 }
                             }
@@ -1303,7 +1342,7 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Text(
-                                        text = if (quizCorrect) "Halala! Correct Answer! 🎉" else "Hawu! Not quite right.",
+                                        text = if (quizCorrect) com.example.ui.theme.Localization.translate("correct_answer", langCode) else com.example.ui.theme.Localization.translate("try_again", langCode),
                                         color = if (quizCorrect) Color(0xFF047857) else Color(0xFFB91C1C),
                                         fontWeight = FontWeight.Black,
                                         fontSize = 13.sp

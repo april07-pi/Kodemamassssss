@@ -547,11 +547,11 @@ fun PersonCard(
 
             // Skills chips
             val skillList = person.skills.split(",").map { it.trim() }.filter { it.isNotEmpty() }.take(4)
-            Row(
+            LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                skillList.forEach { skill ->
+                items(skillList) { skill ->
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
@@ -571,58 +571,123 @@ fun PersonCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Bottom action row: XP + Connect button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "⚡ ${person.xp} XP",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "🔥 ${person.streak}d streak",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE65100)
-                    )
-                }
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                if (maxWidth < 330.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "⚡ ${person.xp} XP",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = "🔥 ${person.streak}d streak",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE65100)
+                            )
+                        }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = onCardClick,
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(30.dp),
-                        border = BorderStroke(1.dp, ThemeIndigo)
-                    ) {
-                        Text("View Info", fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onCardClick,
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(32.dp),
+                                border = BorderStroke(1.dp, ThemeIndigo)
+                            ) {
+                                Text("View Info", fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = onConnectClick,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (person.isMentorAvailable) ThemeIndigo else Color(0xFF26053D)
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(32.dp)
+                            ) {
+                                Text(
+                                    text = if (person.isMentorAvailable) "Mentorship" else "Connect",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
-
-                    Button(
-                        onClick = onConnectClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (person.isMentorAvailable) ThemeIndigo else Color(0xFF26053D)
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(30.dp)
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = if (person.isMentorAvailable) Icons.Default.ChatBubble else Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (person.isMentorAvailable) "Mentorship" else "Connect",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
+                            Text(
+                                text = "⚡ ${person.xp} XP",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "🔥 ${person.streak}d streak",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE65100)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = onCardClick,
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp),
+                                border = BorderStroke(1.dp, ThemeIndigo)
+                            ) {
+                                Text("View Info", fontSize = 10.sp, color = ThemeIndigo, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = onConnectClick,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (person.isMentorAvailable) ThemeIndigo else Color(0xFF26053D)
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (person.isMentorAvailable) Icons.Default.ChatBubble else Icons.Default.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (person.isMentorAvailable) "Mentorship" else "Connect",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }

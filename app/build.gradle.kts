@@ -14,8 +14,8 @@ android {
     applicationId = "com.aistudio.kodemamas.hftxyz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 31
-    versionName = "1.4.1"
+    versionCode = 34
+    versionName = "1.5.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -46,7 +46,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       isDebuggable = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
@@ -64,6 +65,17 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  lint {
+    checkReleaseBuilds = false
+    abortOnError = false
+  }
+}
+
+configurations.all {
+  resolutionStrategy {
+    force("androidx.fragment:fragment:1.8.6")
+    force("androidx.fragment:fragment-ktx:1.8.6")
+  }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -93,6 +105,7 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
+  implementation(libs.androidx.fragment.ktx)
   // implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)

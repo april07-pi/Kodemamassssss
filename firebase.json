@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-android-kodemama-8d2b4808-9e86-4706-a7f1-8d5dd6467748",
+      "rules": "firestore.rules"
+    }
+  ]
+}

@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -76,7 +78,7 @@ fun RateAppDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(22.dp),
+                    .padding(horizontal = 16.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Header
@@ -249,7 +251,7 @@ fun UserFeedbackDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(horizontal = 16.dp, vertical = 18.dp)
             ) {
                 // Header
                 Row(
@@ -292,46 +294,23 @@ fun UserFeedbackDialog(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Category chips row
-                Row(
+                // Category chips (horizontally scrollable to avoid line clipping on small screens)
+                LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    categories.take(3).forEach { cat ->
+                    items(categories) { cat ->
                         val isSel = selectedCategory == cat
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (isSel) colors.brandPurple else colors.surfaceVariant)
                                 .clickable { selectedCategory = cat }
-                                .padding(horizontal = 8.dp, vertical = 5.dp)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Text(
                                 text = cat,
-                                fontSize = 10.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSel) Color.White else colors.textPrimary
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    categories.drop(3).forEach { cat ->
-                        val isSel = selectedCategory == cat
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSel) colors.brandPurple else colors.surfaceVariant)
-                                .clickable { selectedCategory = cat }
-                                .padding(horizontal = 8.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                text = cat,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                 color = if (isSel) Color.White else colors.textPrimary
                             )

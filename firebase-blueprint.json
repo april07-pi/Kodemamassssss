@@ -1,0 +1,185 @@
+{
+  "entities": {
+    "Person": {
+      "title": "Person",
+      "description": "A member, learner, or mentor in the KodeMamas community.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the person or member."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the creator/member."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the person."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role in the community, e.g. Mama in Tech, Learner, Tech Mentor."
+        },
+        "townshipOrCity": {
+          "type": "string",
+          "description": "Township or city location."
+        },
+        "province": {
+          "type": "string",
+          "description": "Province in South Africa."
+        },
+        "primaryLanguage": {
+          "type": "string",
+          "description": "Primary South African language spoken."
+        },
+        "bio": {
+          "type": "string",
+          "description": "Short bio or introduction."
+        },
+        "skills": {
+          "type": "string",
+          "description": "Comma separated skills."
+        },
+        "githubOrPortfolio": {
+          "type": "string",
+          "description": "Portfolio or GitHub link."
+        },
+        "linkedinUrl": {
+          "type": "string",
+          "description": "LinkedIn profile link."
+        },
+        "isMentorAvailable": {
+          "type": "boolean",
+          "description": "Whether available for 1-on-1 mentorship."
+        },
+        "xp": {
+          "type": "number",
+          "description": "Experience points earned."
+        },
+        "streak": {
+          "type": "number",
+          "description": "Learning streak in days."
+        },
+        "badge": {
+          "type": "string",
+          "description": "Achievement badge title."
+        },
+        "lastActive": {
+          "type": "number",
+          "description": "Epoch timestamp of last activity."
+        },
+        "isVerified": {
+          "type": "boolean",
+          "description": "Verification status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was created."
+        }
+      },
+      "required": ["id", "name", "role", "townshipOrCity", "province", "primaryLanguage"]
+    },
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Learning progress and quiz scores for a specific lesson.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user."
+        },
+        "lessonId": {
+          "type": "string",
+          "description": "ID of the lesson."
+        },
+        "currentStepIndex": {
+          "type": "number",
+          "description": "Current step reached in the lesson."
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Whether the lesson content was fully completed."
+        },
+        "quizCompleted": {
+          "type": "boolean",
+          "description": "Whether the lesson quiz was completed."
+        },
+        "score": {
+          "type": "number",
+          "description": "Quiz score achieved."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of progress update."
+        }
+      },
+      "required": ["userId", "lessonId", "isCompleted"]
+    },
+    "DiscussionPost": {
+      "title": "DiscussionPost",
+      "description": "A community discussion post or question.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the post."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the author."
+        },
+        "author": {
+          "type": "string",
+          "description": "Author display name."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of author."
+        },
+        "content": {
+          "type": "string",
+          "description": "Post text content."
+        },
+        "likes": {
+          "type": "number",
+          "description": "Number of likes."
+        },
+        "commentCount": {
+          "type": "number",
+          "description": "Number of comments."
+        },
+        "languageCode": {
+          "type": "string",
+          "description": "Language code of the post."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp."
+        }
+      },
+      "required": ["id", "userId", "author", "content"]
+    }
+  },
+  "firestore": {
+    "/people/{personId}": {
+      "schema": "Person",
+      "description": "Public community profiles and mentors."
+    },
+    "/users/{userId}/progress/{lessonId}": {
+      "schema": "UserProgress",
+      "description": "Per-user private learning progress records."
+    },
+    "/discussions/{postId}": {
+      "schema": "DiscussionPost",
+      "description": "Community discussion forum posts."
+    }
+  }
+}

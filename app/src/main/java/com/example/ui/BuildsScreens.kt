@@ -239,7 +239,10 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -254,22 +257,25 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
                                 modifier = Modifier.size(22.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
                             Text(
                                 text = "KodeMamas Code Studio",
                                 color = Color.White,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 17.sp
+                                fontSize = 16.sp,
+                                maxLines = 1
                             )
                             Text(
-                                text = "Interactive Mobile Compiler & Sandbox",
+                                text = "Mobile Compiler & Sandbox",
                                 color = ThemeGold,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     // Zero Data / Offline pill
                     Surface(
@@ -466,7 +472,10 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         Surface(
                             shape = CircleShape,
                             color = Color(0xFFEF4444),
@@ -646,7 +655,10 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
                             Icon(
                                 imageVector = if (simulatorSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
                                 contentDescription = null,
@@ -700,6 +712,6 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(88.dp))
     }
 }

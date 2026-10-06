@@ -439,122 +439,135 @@ fun AppHeader(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         // Logo & Controls row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Kode",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                    Text(
-                        text = "Mamas",
-                        color = ThemeGold,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                }
-                Text(
-                    text = "SOUTH AFRICA",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp
-                )
-                Text(
-                    text = "by Nokwazi Nobuhle Xaba",
-                    color = ThemeGold.copy(alpha = 0.95f),
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Network Status Toggle Widget
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isOnline) Color(0xFF064E3B) else Color.White.copy(alpha = 0.12f))
-                        .clickable { onToggleNetwork() }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(if (isOnline) Color(0xFF10B981) else Color(0xFFF59E0B))
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isNarrowScreen = maxWidth < 380.dp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Kode",
+                            color = Color.White,
+                            fontSize = if (isNarrowScreen) 20.sp else 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.SansSerif
                         )
                         Text(
-                            text = if (isOnline) "ONLINE" else "OFFLINE",
-                            color = if (isOnline) Color(0xFF34D399) else Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                // Language selector pill
-                Button(
-                    onClick = onLangClick,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1F2937)
-                    ),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(34.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = "🇿🇦 ${Localization.languages.find { it.code == langCode }?.localName ?: "English"}",
+                            text = "Mamas",
                             color = ThemeGold,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "Change Language",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            fontSize = if (isNarrowScreen) 20.sp else 22.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.SansSerif
                         )
                     }
+                    Text(
+                        text = "SOUTH AFRICA",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "by Nokwazi Nobuhle Xaba",
+                        color = ThemeGold.copy(alpha = 0.95f),
+                        fontSize = 7.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.3.sp,
+                        modifier = Modifier.padding(top = 1.dp)
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // Settings & Hub Icon button
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1F2937))
-                        .clickable { onOpenSettings() },
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings & Hub",
-                        tint = ThemeGold,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    // Network Status Toggle Widget
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isOnline) Color(0xFF064E3B) else Color.White.copy(alpha = 0.12f))
+                            .clickable { onToggleNetwork() }
+                            .padding(horizontal = if (isNarrowScreen) 6.dp else 8.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(if (isOnline) Color(0xFF10B981) else Color(0xFFF59E0B))
+                            )
+                            if (!isNarrowScreen) {
+                                Text(
+                                    text = if (isOnline) "ONLINE" else "OFFLINE",
+                                    color = if (isOnline) Color(0xFF34D399) else Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Language selector pill
+                    val currentLangName = Localization.languages.find { it.code == langCode }?.localName ?: "English"
+                    val displayLang = if (isNarrowScreen) {
+                        "🇿🇦 ${currentLangName.take(3)}"
+                    } else {
+                        "🇿🇦 $currentLangName"
+                    }
+
+                    Button(
+                        onClick = onLangClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1F2937)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = displayLang,
+                                color = ThemeGold,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Change Language",
+                                tint = Color.White,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+
+                    // Settings & Hub Icon button
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF1F2937))
+                            .clickable { onOpenSettings() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings & Hub",
+                            tint = ThemeGold,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -564,6 +577,7 @@ fun AppHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 10.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             val screens = listOf(
@@ -586,7 +600,7 @@ fun AppHeader(
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
@@ -594,114 +608,245 @@ fun AppHeader(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Profile summary card (Sub-banner)
+        // Profile summary card (Sub-banner) - Responsive across small, medium and large screens
         userProfile?.let { profile ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color(0xFF1F2937))
-                    .border(1.dp, Color(0xFF374151), RoundedCornerShape(22.dp))
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Native avatar icon
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(ThemeGold),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = profile.name.take(1).uppercase(),
-                        fontWeight = FontWeight.Black,
-                        fontSize = 24.sp,
-                        color = Color(0xFF111827)
-                    )
-                }
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val isSmallPhone = maxWidth < 380.dp
+                if (isSmallPhone) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFF1F2937))
+                            .border(1.dp, Color(0xFF374151), RoundedCornerShape(20.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(ThemeGold),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = profile.name.take(1).uppercase(),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 22.sp,
+                                    color = Color(0xFF111827)
+                                )
+                            }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Sawubona, ${profile.name.take(6)}... ",
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Profile",
-                            tint = ThemeGold,
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Sawubona, ${profile.name} ",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit Profile",
+                                        tint = ThemeGold,
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clickable { onEditProfile() }
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${profile.role} • Bloemfontein Hub",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Full width responsive stats bar for readable streak and XP on small screens
+                        Row(
                             modifier = Modifier
-                                .size(14.dp)
-                                .clickable { onEditProfile() }
-                        )
-                    }
-                    Text(
-                        text = "${profile.role} •",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 11.sp
-                    )
-                    Text(
-                        text = "Bloemfontein Hub",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 11.sp
-                    )
-                }
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF111827).copy(alpha = 0.6f))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceAround,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Star,
+                                    contentDescription = "XP",
+                                    tint = Color(0xFFFFB300),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = Localization.translate("total_xp", langCode).uppercase(),
+                                        color = Color(0xFFFFB300),
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${profile.xp}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
 
-                // Stats values
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = Localization.translate("total_xp", langCode).uppercase(),
-                            color = Color(0xFFFFB300),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Star,
-                                contentDescription = "XP Logo",
-                                tint = Color(0xFFFFB300),
-                                modifier = Modifier.size(14.dp)
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(24.dp)
+                                    .background(Color(0xFF374151))
                             )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "${profile.xp}",
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 15.sp
-                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Whatshot,
+                                    contentDescription = "Streak",
+                                    tint = Color(0xFFFF5722),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = Localization.translate("streak", langCode).uppercase(),
+                                        color = Color(0xFFFF5722),
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${profile.streak}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
                         }
                     }
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = Localization.translate("streak", langCode).uppercase(),
-                            color = Color(0xFFFF5722),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Whatshot,
-                                contentDescription = "Streak",
-                                tint = Color(0xFFFF5722),
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(Color(0xFF1F2937))
+                            .border(1.dp, Color(0xFF374151), RoundedCornerShape(22.dp))
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Native avatar icon
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ThemeGold),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = "${profile.streak}",
-                                color = Color.White,
+                                text = profile.name.take(1).uppercase(),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 15.sp
+                                fontSize = 24.sp,
+                                color = Color(0xFF111827)
                             )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Sawubona, ${profile.name} ",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Profile",
+                                    tint = ThemeGold,
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clickable { onEditProfile() }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${profile.role} • Bloemfontein Hub",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Stats values
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = Localization.translate("total_xp", langCode).uppercase(),
+                                    color = Color(0xFFFFB300),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Star,
+                                        contentDescription = "XP Logo",
+                                        tint = Color(0xFFFFB300),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = "${profile.xp}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                            }
+
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = Localization.translate("streak", langCode).uppercase(),
+                                    color = Color(0xFFFF5722),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Whatshot,
+                                        contentDescription = "Streak",
+                                        tint = Color(0xFFFF5722),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = "${profile.streak}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -826,7 +971,7 @@ fun DashboardTab(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // 1. LEARNER GREETING & STATUS CARD
@@ -839,13 +984,16 @@ fun DashboardTab(
                 colors = CardDefaults.cardColors(containerColor = colors.surface),
                 border = BorderStroke(1.dp, colors.cardBorder)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(42.dp)
@@ -860,18 +1008,20 @@ fun DashboardTab(
                                     color = Color(0xFF111827)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f, fill = false)) {
                                 Text(
                                     text = "Sawubona, ${userProfile?.name ?: "Learner"}",
-                                    fontSize = 18.sp,
+                                    fontSize = 16.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = colors.textPrimary
+                                    color = colors.textPrimary,
+                                    maxLines = 1
                                 )
                                 Text(
                                     text = "${userProfile?.role ?: "Student"} • Bloemfontein Hub 🇿🇦",
-                                    fontSize = 12.sp,
-                                    color = colors.textSecondary
+                                    fontSize = 11.sp,
+                                    color = colors.textSecondary,
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -910,7 +1060,7 @@ fun DashboardTab(
                     // Learner Stat Badges
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         // Streak
                         Box(
@@ -919,27 +1069,29 @@ fun DashboardTab(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFFFF5722).copy(alpha = 0.08f))
                                 .border(1.dp, Color(0xFFFF5722).copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                                .padding(horizontal = 6.dp, vertical = 8.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Filled.Whatshot,
                                     contentDescription = null,
                                     tint = Color(0xFFFF5722),
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Column {
                                     Text(
-                                        text = "${userProfile?.streak ?: 0} Days",
+                                        text = "${userProfile?.streak ?: 0}d",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = colors.textPrimary
+                                        fontSize = 11.sp,
+                                        color = colors.textPrimary,
+                                        maxLines = 1
                                     )
                                     Text(
                                         text = "Streak",
                                         fontSize = 9.sp,
-                                        color = colors.textSecondary
+                                        color = colors.textSecondary,
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -952,27 +1104,29 @@ fun DashboardTab(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(ThemeGold.copy(alpha = 0.12f))
                                 .border(1.dp, ThemeGold.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                                .padding(horizontal = 6.dp, vertical = 8.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Filled.Star,
                                     contentDescription = null,
                                     tint = Color(0xFFD97706),
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Column {
                                     Text(
                                         text = "${userProfile?.xp ?: 0} XP",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = colors.textPrimary
+                                        fontSize = 11.sp,
+                                        color = colors.textPrimary,
+                                        maxLines = 1
                                     )
                                     Text(
                                         text = "Learned",
                                         fontSize = 9.sp,
-                                        color = colors.textSecondary
+                                        color = colors.textSecondary,
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -985,27 +1139,29 @@ fun DashboardTab(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFF10B981).copy(alpha = 0.08f))
                                 .border(1.dp, Color(0xFF10B981).copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                                .padding(horizontal = 6.dp, vertical = 8.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
                                     contentDescription = null,
                                     tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Column {
                                     Text(
-                                        text = "$completedCount / $totalCount",
+                                        text = "$completedCount/$totalCount",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = colors.textPrimary
+                                        fontSize = 11.sp,
+                                        color = colors.textPrimary,
+                                        maxLines = 1
                                     )
                                     Text(
-                                        text = "Completed",
+                                        text = "Done",
                                         fontSize = 9.sp,
-                                        color = colors.textSecondary
+                                        color = colors.textSecondary,
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -1229,11 +1385,16 @@ fun DashboardTab(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(16.dp))
                                 .clickable(enabled = isUnlocked) {
-                                    matchingLesson?.let {
-                                        viewModel.selectLesson(it)
-                                        viewModel.setSelectedCategoryFilter(cat)
+                                    if (cat == "Data & AI") {
                                         viewModel.closeCourseDetail()
-                                        viewModel.selectTab("learn")
+                                        viewModel.selectTab("ai_chat")
+                                    } else {
+                                        matchingLesson?.let {
+                                            viewModel.selectLesson(it)
+                                            viewModel.setSelectedCategoryFilter(cat)
+                                            viewModel.closeCourseDetail()
+                                            viewModel.selectTab("learn")
+                                        }
                                     }
                                 },
                             colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -1253,7 +1414,7 @@ fun DashboardTab(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = if (cat == "JavaScript") "JS" else if (cat == "Python") "PY" else cat,
+                                        text = if (cat == "JavaScript") "JS" else if (cat == "Python") "PY" else if (cat == "Data & AI") "🤖" else cat,
                                         color = tagColor,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 13.sp
@@ -1265,21 +1426,21 @@ fun DashboardTab(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            text = cat,
+                                            text = if (cat == "Data & AI") "${Localization.translate("cat_data_ai", langCode)} • ${Localization.translate("ai_assistant", langCode)}" else cat,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = tagColor
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "• ${matchingLesson?.durationMinutes ?: 15} mins",
+                                            text = if (cat == "Data & AI") "• ${Localization.translate("mama_ruth_ai", langCode)}" else "• ${matchingLesson?.durationMinutes ?: 15} mins",
                                             fontSize = 10.sp,
                                             color = colors.textSecondary
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = matchingLesson?.title ?: title,
+                                        text = if (cat == "Data & AI") Localization.translate("ai_banner_desc", langCode) else if (matchingLesson != null) Localization.getLessonTitle(matchingLesson.id, langCode) else title,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = colors.textPrimary,

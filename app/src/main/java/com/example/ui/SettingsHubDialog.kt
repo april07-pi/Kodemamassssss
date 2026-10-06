@@ -57,7 +57,7 @@ fun SettingsHubDialog(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
+                    .padding(horizontal = 16.dp, vertical = 18.dp)
             ) {
                 // Header
                 Row(
@@ -401,7 +401,7 @@ fun SettingsHubDialog(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "v1.2.2 (Build 27) • ASO Optimized • Offline-First",
+                                text = "v${com.example.BuildConfig.VERSION_NAME} (Build ${com.example.BuildConfig.VERSION_CODE}) • ASO Optimized • Offline-First",
                                 fontSize = 10.sp,
                                 color = colors.textSecondary.copy(alpha = 0.7f)
                             )

@@ -573,11 +573,14 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (selectedModel == GeminiService.MODEL_GEMINI_3_1_PRO) "Model: Gemini 3.1 Pro" else "Model: Gemini 3.5 Flash",
+                        text = if (selectedModel == GeminiService.MODEL_GEMINI_3_1_PRO) "Model: 3.1 Pro" else "Model: 3.5 Flash",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
+
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     FilterChip(
                         selected = isGoogleSearchEnabled,
@@ -733,7 +736,8 @@ fun AiChatTab(viewModel: MainViewModel, langCode: String) {
 
                             Surface(
                                 modifier = Modifier
-                                    .widthIn(max = 290.dp)
+                                    .fillMaxWidth(0.85f)
+                                    .widthIn(max = 480.dp)
                                     .clip(
                                         RoundedCornerShape(
                                             topStart = 16.dp,

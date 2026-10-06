@@ -214,7 +214,10 @@ fun MentorshipMainMenu(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
@@ -225,7 +228,7 @@ fun MentorshipMainMenu(
                                 Text(if (currentPlan == "PREMIUM") "👑" else "⭐", fontSize = 18.sp)
                             }
                             Spacer(modifier = Modifier.width(10.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f, fill = false)) {
                                 Text(
                                     text = when (currentPlan) {
                                         "PREMIUM" -> "Premium Member (R299/yr)"
@@ -234,13 +237,15 @@ fun MentorshipMainMenu(
                                     },
                                     color = Color.White,
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 14.sp
+                                    fontSize = 14.sp,
+                                    maxLines = 1
                                 )
                                 Text(
                                     text = if (currentPlan == "PREMIUM") "ALL 12 CAREER SERVICES UNLOCKED" else "Upgrade to unlock full career tools",
                                     color = ThemeGold,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -277,7 +282,10 @@ fun MentorshipMainMenu(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Text("💳", fontSize = 14.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Column {
@@ -285,6 +293,8 @@ fun MentorshipMainMenu(
                                     Text("Standard: R99/yr • Premium: R299/yr", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp)
                                 }
                             }
+
+                            Spacer(modifier = Modifier.width(6.dp))
 
                             Button(
                                 onClick = onCopyCapitecAccount,

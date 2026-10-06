@@ -1,0 +1,95 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global security helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity validation helpers
+    function isValidPerson(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.role is string && data.role.size() > 0 && data.role.size() <= 100 &&
+             data.townshipOrCity is string && data.townshipOrCity.size() <= 100 &&
+             data.province is string && data.province.size() <= 100 &&
+             data.primaryLanguage is string && data.primaryLanguage.size() <= 50 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 1000)) &&
+             (!('skills' in data) || (data.skills is string && data.skills.size() <= 500)) &&
+             (!('githubOrPortfolio' in data) || (data.githubOrPortfolio is string && data.githubOrPortfolio.size() <= 300)) &&
+             (!('linkedinUrl' in data) || (data.linkedinUrl is string && data.linkedinUrl.size() <= 300)) &&
+             (!('isMentorAvailable' in data) || data.isMentorAvailable is bool) &&
+             (!('xp' in data) || data.xp is int || data.xp is number) &&
+             (!('streak' in data) || data.streak is int || data.streak is number) &&
+             (!('badge' in data) || (data.badge is string && data.badge.size() <= 100)) &&
+             (!('isVerified' in data) || data.isVerified is bool) &&
+             (!('userId' in data) || (data.userId is string && data.userId == request.auth.uid)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp && data.createdAt <= request.time));
+    }
+
+    function isValidUserProgress(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.lessonId is string && data.lessonId.size() > 0 && data.lessonId.size() <= 100 &&
+             data.isCompleted is bool &&
+             (!('currentStepIndex' in data) || data.currentStepIndex is int || data.currentStepIndex is number) &&
+             (!('quizCompleted' in data) || data.quizCompleted is bool) &&
+             (!('score' in data) || data.score is int || data.score is number) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidDiscussionPost(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.author is string && data.author.size() > 0 && data.author.size() <= 100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 2000 &&
+             (!('role' in data) || (data.role is string && data.role.size() <= 50)) &&
+             (!('likes' in data) || data.likes is int || data.likes is number) &&
+             (!('commentCount' in data) || data.commentCount is int || data.commentCount is number) &&
+             (!('languageCode' in data) || (data.languageCode is string && data.languageCode.size() <= 10)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp && data.createdAt <= request.time));
+    }
+
+    // Rules for public community members/people
+    match /people/{personId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(personId) && isValidPerson(incoming());
+      allow update: if isSignedIn() && isValidPerson(incoming()) &&
+                       (!('userId' in existing()) || existing().userId == request.auth.uid);
+      allow delete: if isSignedIn() && ('userId' in existing()) && existing().userId == request.auth.uid;
+    }
+
+    // Rules for user progress (private to each user)
+    match /users/{userId}/progress/{lessonId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidId(lessonId) && isValidUserProgress(incoming(), userId);
+      allow delete: if isOwner(userId);
+    }
+
+    // Rules for community discussions
+    match /discussions/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(postId) && isValidDiscussionPost(incoming());
+      allow update: if isSignedIn() && (existing().userId == request.auth.uid) && isValidDiscussionPost(incoming());
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}

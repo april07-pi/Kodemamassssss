@@ -41,8 +41,8 @@ class FirebasePeopleDatabaseService(
     private val prefs = context.getSharedPreferences("kodemamas_firebase_prefs", Context.MODE_PRIVATE)
 
     companion object {
-        const val DEFAULT_PROJECT_ID = "kodemamas-za-tech"
-        const val DEFAULT_DATABASE_URL = "https://kodemamas-za-default-rtdb.firebaseio.com"
+        const val DEFAULT_PROJECT_ID = "macro-approach-460519-f2"
+        const val DEFAULT_DATABASE_URL = "https://macro-approach-460519-f2-default-rtdb.europe-west1.firebasedatabase.app"
         private const val PREF_KEY_URL = "firebase_db_url"
         private const val PREF_KEY_PROJECT = "firebase_project_id"
         private const val TAG = "FirebasePeopleDB"

@@ -127,7 +127,7 @@ fun PlayStoreShowcaseDialog(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
+                    .padding(horizontal = 16.dp, vertical = 18.dp)
             ) {
                 // Header
                 Row(
@@ -135,7 +135,7 @@ fun PlayStoreShowcaseDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Play Store Showcase",
@@ -164,6 +164,8 @@ fun PlayStoreShowcaseDialog(
                             color = colors.textSecondary
                         )
                     }
+
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = colors.textSecondary)

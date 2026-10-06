@@ -171,7 +171,10 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
                                     Box(
                                         modifier = Modifier
                                             .size(36.dp)
@@ -182,7 +185,7 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                                         Text("🇿🇦", fontSize = 18.sp)
                                     }
                                     Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "Township Coding Circle",
                                             color = Color.White,
@@ -318,7 +321,10 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
                                     Box(
                                         modifier = Modifier
                                             .size(38.dp)
@@ -334,12 +340,13 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f, fill = false)) {
                                         Text(
                                             text = p.author,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
-                                            color = colors.textPrimary
+                                            color = colors.textPrimary,
+                                            maxLines = 1
                                         )
                                         Text(
                                             text = when (p.role) {
@@ -349,7 +356,8 @@ fun CommunityTab(viewModel: MainViewModel, langCode: String) {
                                             },
                                             fontSize = 10.sp,
                                             color = ThemeIndigo,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
                                         )
                                     }
                                 }
