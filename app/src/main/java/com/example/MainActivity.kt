@@ -134,13 +134,15 @@ fun MainAppScreen(viewModel: MainViewModel) {
             langCode = langCode,
             onBeginClick = { viewModel.dismissOnboarding() }
         )
+    } else if (currentLesson != null) {
+        // Fullscreen Active Lesson Simulator - Accessible from anywhere
+        ActiveLessonSimulator(viewModel = viewModel, langCode = langCode)
     } else if (showCourseDetail) {
         // Screen 3: Course Overview / Lesson Detail Screen
         KodeMamasCourseDetailView(
             viewModel = viewModel,
             onBackClick = { viewModel.closeCourseDetail() },
             onStartLesson = {
-                viewModel.closeCourseDetail()
                 val lesson = allLessonsList.firstOrNull()
                 if (lesson != null) {
                     viewModel.startLesson(lesson)
@@ -301,6 +303,9 @@ fun MainAppScreen(viewModel: MainViewModel) {
             },
             onToggleDataSaving = {
                 viewModel.toggleDataSaving(it)
+            },
+            onResetProgress = {
+                viewModel.resetProgressToZero()
             }
         )
     }
@@ -1378,13 +1383,13 @@ fun DashboardTab(
                     coreCategories.forEach { (cat, title, tagColor) ->
                         val matchingLesson = lessons.find { it.category == cat }
                         val isLessonCompleted = matchingLesson != null && matchingLesson.id in completedLessonIds
-                        val isUnlocked = matchingLesson?.isUnlocked == true || matchingLesson?.id in listOf("html_1", "mobile_1", "ai_1", "design_1")
+                        val isUnlocked = true // Accessible to all learners
 
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(16.dp))
-                                .clickable(enabled = isUnlocked) {
+                                .clickable {
                                     if (cat == "Data & AI") {
                                         viewModel.closeCourseDetail()
                                         viewModel.selectTab("ai_chat")

@@ -325,7 +325,7 @@ fun LearnTab(viewModel: MainViewModel, langCode: String) {
             modifier = Modifier.fillMaxWidth()
         ) {
             items(filteredLessons) { lesson ->
-                val isUnlocked = lesson.isUnlocked || lesson.id in listOf("html_1", "html_2", "css_2", "js_3", "python_4", "mobile_1", "ai_1", "design_1")
+                val isUnlocked = true // All lessons accessible to every learner
                 val isCompleted = lesson.id in completedLessonIds
 
                 LessonItemCard(
@@ -397,16 +397,15 @@ private fun LessonItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .clickable(enabled = isUnlocked) { onSelect() }
+            .clickable { onSelect() }
             .testTag("lesson_card_${lesson.id}"),
         colors = CardDefaults.cardColors(
-            containerColor = if (isUnlocked) colors.surface else colors.surface.copy(alpha = 0.6f)
+            containerColor = colors.surface
         ),
         border = BorderStroke(
             1.dp,
             if (isCompleted) Color(0xFF059669).copy(alpha = 0.4f)
-            else if (isUnlocked) colors.cardBorder
-            else colors.cardBorder.copy(alpha = 0.4f)
+            else colors.cardBorder
         )
     ) {
         Column(
@@ -521,65 +520,49 @@ private fun LessonItemCard(
                             )
                         }
                     }
-                } else if (isUnlocked) {
+                } else {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(ThemeGold.copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(
-                            text = Localization.translate("unlocked", langCode),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF92400E)
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.Gray.copy(alpha = 0.12f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Lock,
+                                imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                tint = Color.Gray,
-                                modifier = Modifier.size(11.dp)
+                                tint = Color(0xFF92400E),
+                                modifier = Modifier.size(12.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
                             Text(
-                                text = Localization.translate("locked", langCode),
+                                text = if (lesson.isDownloaded) "OFFLINE READY" else Localization.translate("unlocked", langCode),
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.Gray
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF92400E)
                             )
                         }
                     }
                 }
 
                 // CTA Button
-                if (isUnlocked) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Text(
-                            text = if (isCompleted) Localization.translate("continue_lesson", langCode) else Localization.translate("start_lesson", langCode),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ThemeIndigo
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = ThemeIndigo,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(
+                        text = if (isCompleted) Localization.translate("continue_lesson", langCode) else Localization.translate("start_lesson", langCode),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ThemeIndigo
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = ThemeIndigo,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }
@@ -1120,6 +1103,14 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                 )
                             }
                         }
+
+                        // 4b. COMPUTER MONITOR DESKTOP PREVIEW
+                        ComputerDesktopPreview(
+                            code = editorText,
+                            language = lesson?.category ?: "HTML",
+                            consoleOutput = simulatorOutput,
+                            title = "${lesson?.title ?: "Lesson"} • Computer Preview"
+                        )
                     }
                 }
 
@@ -1442,6 +1433,40 @@ fun ActiveLessonSimulator(viewModel: MainViewModel, langCode: String) {
                                 )
                             }
                         }
+                    }
+                }
+            } else {
+                // Loading or Preparing Lesson Steps Fallback Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp)),
+                    colors = CardDefaults.cardColors(containerColor = colors.surface),
+                    border = BorderStroke(1.dp, colors.cardBorder)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = ThemeIndigo,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = "Loading ${lesson?.title ?: "Lesson"}...",
+                            color = colors.textPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Preparing offline interactive modules...",
+                            color = colors.textSecondary,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }

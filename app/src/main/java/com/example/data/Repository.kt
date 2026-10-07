@@ -158,63 +158,72 @@ class Repository(private val db: AppDatabase) {
     suspend fun prepopulateDatabaseIfEmpty() {
         val existingProfile = db.userDao().getUserProfileSynchronous()
         if (existingProfile == null) {
-            // 1. Enter default User Profile
+            // 1. Enter default User Profile starting at 0%
             db.userDao().insertOrUpdateProfile(
                 UserProfile(
                     name = "Learner",
                     email = "learner@kodemamas.org",
                     role = "Student", // Mama, Student, Girl
                     languageCode = "en",
-                    streak = 3,
-                    xp = 240,
+                    streak = 0,
+                    xp = 0,
                     dataSavingMode = false,
                     isPremium = false,
-                    hasDownloadedOffline = false
+                    hasDownloadedOffline = true
                 )
             )
+        } else {
+            val completedCount = db.progressDao().getCompletedCount()
+            if (completedCount == 0 && (existingProfile.xp > 0 || existingProfile.streak > 0)) {
+                db.userDao().resetXpAndStreak()
+            }
         }
 
         val lessonCount = db.lessonDao().getLessonCount()
         val hasAiLesson = db.lessonDao().getLessonById("ai_1") != null
         if (lessonCount < 21 || !hasAiLesson) {
-            // 2. Prepopulate all 21 comprehensive lessons across HTML, CSS, JavaScript, Python, Mobile Dev, Data & AI, and Design
+            // 2. Prepopulate all 21 comprehensive lessons across HTML, CSS, JavaScript, Python, Mobile Dev, Data & AI, and Design (all unlocked and offline-ready)
             val allLessons = listOf(
                 // HTML Category
                 Lesson("html_1", "Intro to HTML (Web Layout)", "Mam's Spaza Shop Storefront", "HTML", "Beginner", 10, isUnlocked = true, isDownloaded = true, orderIndex = 1),
                 Lesson("html_2", "Interactive Forms & Customer Inputs", "Spaza Digital Order & Delivery Booking", "HTML", "Beginner", 15, isUnlocked = true, isDownloaded = true, orderIndex = 2),
-                Lesson("html_3", "Semantic HTML & Township Media", "Adding Community Audio, Video & Gallery", "HTML", "Beginner", 18, isUnlocked = false, isDownloaded = false, orderIndex = 3),
+                Lesson("html_3", "Semantic HTML & Township Media", "Adding Community Audio, Video & Gallery", "HTML", "Beginner", 18, isUnlocked = true, isDownloaded = true, orderIndex = 3),
 
                 // CSS Category
                 Lesson("css_2", "Adding Style with CSS", "Beautifying Your Online Catalog", "CSS", "Beginner", 15, isUnlocked = true, isDownloaded = true, orderIndex = 4),
-                Lesson("css_3", "Flexbox & Grid Layouts", "Product Shelves & Responsive Cards", "CSS", "Intermediate", 20, isUnlocked = false, isDownloaded = false, orderIndex = 5),
-                Lesson("css_4", "Responsive Mobile-First Design", "Media Queries for Low-End Smartphones", "CSS", "Intermediate", 22, isUnlocked = false, isDownloaded = false, orderIndex = 6),
+                Lesson("css_3", "Flexbox & Grid Layouts", "Product Shelves & Responsive Cards", "CSS", "Intermediate", 20, isUnlocked = true, isDownloaded = true, orderIndex = 5),
+                Lesson("css_4", "Responsive Mobile-First Design", "Media Queries for Low-End Smartphones", "CSS", "Intermediate", 22, isUnlocked = true, isDownloaded = true, orderIndex = 6),
 
                 // JavaScript Category
                 Lesson("js_3", "Interactive JS Calculations", "Calculating Bread & Veggie Orders", "JavaScript", "Beginner", 20, isUnlocked = true, isDownloaded = true, orderIndex = 7),
-                Lesson("js_4", "DOM Manipulation & Event Listeners", "Adding to Cart & Real-Time Total", "JavaScript", "Intermediate", 25, isUnlocked = false, isDownloaded = false, orderIndex = 8),
-                Lesson("js_5", "Async Data & Fetch APIs", "Live Township Weather & Produce Market Prices", "JavaScript", "Intermediate", 28, isUnlocked = false, isDownloaded = false, orderIndex = 9),
+                Lesson("js_4", "DOM Manipulation & Event Listeners", "Adding to Cart & Real-Time Total", "JavaScript", "Intermediate", 25, isUnlocked = true, isDownloaded = true, orderIndex = 8),
+                Lesson("js_5", "Async Data & Fetch APIs", "Live Township Weather & Produce Market Prices", "JavaScript", "Intermediate", 28, isUnlocked = true, isDownloaded = true, orderIndex = 9),
 
                 // Python Category
                 Lesson("python_4", "Python Crop Agriculture Tracker", "Harvesting & Pricing Predictions", "Python", "Beginner", 25, isUnlocked = true, isDownloaded = true, orderIndex = 10),
-                Lesson("python_5", "Lists, Dictionaries & Store Inventory", "Spaza Stock Management Engine", "Python", "Intermediate", 25, isUnlocked = false, isDownloaded = false, orderIndex = 11),
-                Lesson("python_6", "Functions & Automation", "Automated WhatsApp / SMS Receipt Generator", "Python", "Intermediate", 30, isUnlocked = false, isDownloaded = false, orderIndex = 12),
+                Lesson("python_5", "Lists, Dictionaries & Store Inventory", "Spaza Stock Management Engine", "Python", "Intermediate", 25, isUnlocked = true, isDownloaded = true, orderIndex = 11),
+                Lesson("python_6", "Functions & Automation", "Automated WhatsApp / SMS Receipt Generator", "Python", "Intermediate", 30, isUnlocked = true, isDownloaded = true, orderIndex = 12),
 
                 // Mobile Dev Category
                 Lesson("mobile_1", "Android & Compose Fundamentals", "Building Your First Mobile App Screen", "Mobile Dev", "Beginner", 18, isUnlocked = true, isDownloaded = true, orderIndex = 13),
-                Lesson("mobile_2", "State & Interactive Mobile UI", "Township Cart & Real-Time Counter", "Mobile Dev", "Intermediate", 22, isUnlocked = false, isDownloaded = false, orderIndex = 14),
-                Lesson("mobile_3", "Offline-First Mobile Architecture", "Room Database & Loadshedding Resilience", "Mobile Dev", "Intermediate", 25, isUnlocked = false, isDownloaded = false, orderIndex = 15),
+                Lesson("mobile_2", "State & Interactive Mobile UI", "Township Cart & Real-Time Counter", "Mobile Dev", "Intermediate", 22, isUnlocked = true, isDownloaded = true, orderIndex = 14),
+                Lesson("mobile_3", "Offline-First Mobile Architecture", "Room Database & Loadshedding Resilience", "Mobile Dev", "Intermediate", 25, isUnlocked = true, isDownloaded = true, orderIndex = 15),
 
                 // Data & AI Category
                 Lesson("ai_1", "AI & Prompt Engineering Basics", "Querying Gemini AI for Small Businesses", "Data & AI", "Beginner", 18, isUnlocked = true, isDownloaded = true, orderIndex = 16),
-                Lesson("ai_2", "Data Analytics with Python & Pandas", "Predicting Spaza Grocery Demand", "Data & AI", "Intermediate", 22, isUnlocked = false, isDownloaded = false, orderIndex = 17),
-                Lesson("ai_3", "AI Grounding & Live Search", "Fact-Checking with Real-Time Web Data", "Data & AI", "Intermediate", 25, isUnlocked = false, isDownloaded = false, orderIndex = 18),
+                Lesson("ai_2", "Data Analytics with Python & Pandas", "Predicting Spaza Grocery Demand", "Data & AI", "Intermediate", 22, isUnlocked = true, isDownloaded = true, orderIndex = 17),
+                Lesson("ai_3", "AI Grounding & Live Search", "Fact-Checking with Real-Time Web Data", "Data & AI", "Intermediate", 25, isUnlocked = true, isDownloaded = true, orderIndex = 18),
 
                 // Design Category
                 Lesson("design_1", "UI/UX & Mobile Design Principles", "African Color Palettes & Accessibility", "Design", "Beginner", 15, isUnlocked = true, isDownloaded = true, orderIndex = 19),
-                Lesson("design_2", "Figma to Code & Wireframing", "Translating Spaza Mockups to Compose", "Design", "Intermediate", 20, isUnlocked = false, isDownloaded = false, orderIndex = 20),
-                Lesson("design_3", "Inclusive Design & Multi-Language UI", "Designing for 12 Languages & Non-Tech Mamas", "Design", "Intermediate", 22, isUnlocked = false, isDownloaded = false, orderIndex = 21)
+                Lesson("design_2", "Figma to Code & Wireframing", "Translating Spaza Mockups to Compose", "Design", "Intermediate", 20, isUnlocked = true, isDownloaded = true, orderIndex = 20),
+                Lesson("design_3", "Inclusive Design & Multi-Language UI", "Designing for 12 Languages & Non-Tech Mamas", "Design", "Intermediate", 22, isUnlocked = true, isDownloaded = true, orderIndex = 21)
             )
             db.lessonDao().insertLessons(allLessons)
+        }
+
+        // Ensure all lessons are unlocked and downloaded offline for immediate access
+        db.lessonDao().unlockAndDownloadAllLessons()
 
             // 3. Prepopulate Lesson Steps for all 12 lessons
             val allSteps = listOf(
@@ -923,7 +932,6 @@ class Repository(private val db: AppDatabase) {
                 )
             )
             db.quizDao().insertQuizQuestions(allQuizzes)
-        }
 
         // 5. Prepopulate Coding Challenges
         val defaultChallenges = listOf(
@@ -977,5 +985,10 @@ Think like a tech leader: If you were creating a system request to solve a chall
                 messageText = "Sanibonani and welcome to KodeMamas! I am Nokwazi Nobuhle Xaba, solo founder and lead tech mentor from Bloemfontein. Whether you need your CV reviewed, guidance on IT and Computer Science studies, or help solving coding bugs, I am here to support you. Leave a message here anytime!"
             )
         )
+    }
+
+    suspend fun resetProgressToZero() {
+        db.progressDao().clearAllProgress()
+        db.userDao().resetXpAndStreak()
     }
 }

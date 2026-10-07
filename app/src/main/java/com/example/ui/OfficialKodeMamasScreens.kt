@@ -992,6 +992,21 @@ fun KodeMamasHomeView(
 ) {
     val userProfile by viewModel.userProfile.collectAsState()
     val langCode by viewModel.currentLanguageCode.collectAsState()
+    val allLessons by viewModel.allLessons.collectAsState()
+    val progressList by viewModel.allProgress.collectAsState()
+    val completedCount = allLessons.count { lesson ->
+        progressList.any { it.lessonId == lesson.id && it.isCompleted }
+    }
+    val completedIds = remember(progressList) {
+        progressList.filter { it.isCompleted }.map { it.lessonId }.toSet()
+    }
+    val activeLesson = remember(allLessons, completedIds) {
+        allLessons.firstOrNull { it.id !in completedIds } ?: allLessons.firstOrNull()
+    }
+    val totalCount = allLessons.size.coerceAtLeast(1)
+    val progressPercent = ((completedCount.toFloat() / totalCount.toFloat()) * 100).toInt()
+    val progressFraction = (completedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
+    val remainingCount = (allLessons.size - completedCount).coerceAtLeast(0)
     var selectedCategory by remember { mutableStateOf("Web Dev") }
 
     LazyColumn(
@@ -1137,7 +1152,7 @@ fun KodeMamasHomeView(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "70%",
+                            text = "$progressPercent%",
                             color = Color(0xFFFA4D89),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.ExtraBold
@@ -1146,7 +1161,7 @@ fun KodeMamasHomeView(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Gradient Progress Bar
+                    // Gradient Progress Bar (Starts from 0 and fills dynamically)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1154,17 +1169,19 @@ fun KodeMamasHomeView(
                             .clip(RoundedCornerShape(4.dp))
                             .background(Color(0xFF2A0A47))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.70f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(Color(0xFFE02885), Color(0xFFFA4D89))
+                        if (progressFraction > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(progressFraction)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFFE02885), Color(0xFFFA4D89))
+                                        )
                                     )
-                                )
-                        )
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1175,12 +1192,12 @@ fun KodeMamasHomeView(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = com.example.ui.theme.Localization.translate("lessons_completed_count", langCode),
+                            text = if (completedCount == 0) "0 modules completed (Start learning!)" else "$completedCount of ${allLessons.size} completed",
                             color = Color(0xFFC4B5DC),
                             fontSize = 12.sp
                         )
                         Text(
-                            text = com.example.ui.theme.Localization.translate("lessons_to_go", langCode),
+                            text = "$remainingCount to go",
                             color = Color(0xFFC4B5DC),
                             fontSize = 12.sp
                         )
@@ -1221,7 +1238,13 @@ fun KodeMamasHomeView(
                     border = BorderStroke(1.dp, Color(0xFF38105B)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onNavigateToCourse() }
+                        .clickable {
+                            if (activeLesson != null) {
+                                viewModel.startLesson(activeLesson)
+                            } else {
+                                onNavigateToCourse()
+                            }
+                        }
                         .testTag("continue_learning_card")
                 ) {
                     Row(
@@ -1252,7 +1275,7 @@ fun KodeMamasHomeView(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = com.example.ui.theme.Localization.getLessonTitle("html_1", langCode),
+                                text = com.example.ui.theme.Localization.getLessonTitle(activeLesson?.id ?: "html_1", langCode),
                                 color = Color.White,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1261,22 +1284,24 @@ fun KodeMamasHomeView(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = com.example.ui.theme.Localization.getLessonSubtitle("html_1", langCode),
+                                text = com.example.ui.theme.Localization.getLessonSubtitle(activeLesson?.id ?: "html_1", langCode),
                                 color = Color(0xFFC4B5DC),
-                                fontSize = 12.sp
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // 60% pill indicator
+                        // Dynamic activity-driven percentage pill indicator (starts from 0%)
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color(0xFF2E094E),
                             border = BorderStroke(1.dp, Color(0xFFFA4D89).copy(alpha = 0.5f))
                         ) {
                             Text(
-                                text = "60%",
+                                text = if (completedCount == 0) "0% (Start)" else "$progressPercent%",
                                 color = Color(0xFFFA4D89),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,

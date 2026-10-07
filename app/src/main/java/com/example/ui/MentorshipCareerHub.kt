@@ -681,8 +681,8 @@ fun CareerCoachingScreen(onBack: () -> Unit) {
         )
 
         val stages = listOf(
-            Triple("Stage 1: Foundation (Weeks 1-4)", "Master HTML5, semantic markup, and CSS styling. Build your first responsive spaza shop storefront website.", "COMPLETED ✅"),
-            Triple("Stage 2: Logic & Automation (Weeks 5-8)", "Learn JavaScript fundamentals, variables, loops, and Python scripts. Complete 20 daily coding challenges.", "IN PROGRESS ⏳"),
+            Triple("Stage 1: Foundation (Weeks 1-4)", "Master HTML5, semantic markup, and CSS styling. Build your first responsive spaza shop storefront website.", "START HERE (0%) ⏳"),
+            Triple("Stage 2: Logic & Automation (Weeks 5-8)", "Learn JavaScript fundamentals, variables, loops, and Python scripts. Complete daily coding challenges.", "UPCOMING 🔒"),
             Triple("Stage 3: Offline Mobile & Git (Weeks 9-12)", "Learn version control with GitHub, offline mobile caching, and building localized apps.", "UPCOMING 🔒"),
             Triple("Stage 4: Job Application & Portfolio (Weeks 13-16)", "Construct professional developer CV, LinkedIn profile, and participate in mock technical interviews.", "UPCOMING 🔒")
         )

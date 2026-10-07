@@ -32,6 +32,9 @@ interface UserDao {
 
     @Query("UPDATE user_profiles SET isPremium = :isPremium WHERE id = 1")
     suspend fun updatePremiumStatus(isPremium: Boolean)
+
+    @Query("UPDATE user_profiles SET xp = 0, streak = 0 WHERE id = 1")
+    suspend fun resetXpAndStreak()
 }
 
 @Dao
@@ -51,6 +54,9 @@ interface LessonDao {
     @Query("SELECT COUNT(*) FROM lessons")
     suspend fun getLessonCount(): Int
 
+    @Query("UPDATE lessons SET isUnlocked = 1, isDownloaded = 1")
+    suspend fun unlockAndDownloadAllLessons()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLessons(lessons: List<Lesson>)
 }
@@ -60,6 +66,9 @@ interface LessonStepDao {
     @Query("SELECT * FROM lesson_steps WHERE lessonId = :lessonId ORDER BY stepNumber ASC")
     fun getStepsForLesson(lessonId: String): Flow<List<LessonStep>>
 
+    @Query("SELECT COUNT(*) FROM lesson_steps")
+    suspend fun getStepCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSteps(steps: List<LessonStep>)
 }
@@ -68,6 +77,9 @@ interface LessonStepDao {
 interface QuizDao {
     @Query("SELECT * FROM quiz_questions WHERE lessonId = :lessonId")
     fun getQuizForLesson(lessonId: String): Flow<List<QuizQuestion>>
+
+    @Query("SELECT COUNT(*) FROM quiz_questions")
+    suspend fun getQuizCount(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuizQuestions(questions: List<QuizQuestion>)
@@ -83,6 +95,12 @@ interface ProgressDao {
 
     @Query("SELECT * FROM user_progress WHERE lessonId = :lessonId LIMIT 1")
     suspend fun getProgressForLessonSynchronous(lessonId: String): UserProgress?
+
+    @Query("DELETE FROM user_progress")
+    suspend fun clearAllProgress()
+
+    @Query("SELECT COUNT(*) FROM user_progress WHERE isCompleted = 1")
+    suspend fun getCompletedCount(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateProgress(progress: UserProgress)

@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Lightbulb
@@ -634,7 +635,52 @@ fun BuildsTab(viewModel: MainViewModel, langCode: String) {
             }
         }
 
-        // 5. TERMINAL & COMPILER OUTPUT DISPLAY
+        // 5. COMPUTER MONITOR PREVIEW (DESKTOP VIEWPORT & TERMINAL)
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Computer,
+                    contentDescription = null,
+                    tint = ThemeGold,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Desktop Computer Preview",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF10B981).copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = "Live PC View",
+                    color = Color(0xFF34D399),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
+
+        ComputerDesktopPreview(
+            code = editorText,
+            language = selectedLang,
+            consoleOutput = simulatorOutput,
+            title = SA_PROJECT_TEMPLATES.firstOrNull { it.id == selectedTemplateId }?.title ?: "Desktop Simulator",
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // 6. DETAILED TERMINAL & COMPILER OUTPUT DISPLAY
         if (simulatorOutput.isNotEmpty()) {
             Card(
                 modifier = Modifier

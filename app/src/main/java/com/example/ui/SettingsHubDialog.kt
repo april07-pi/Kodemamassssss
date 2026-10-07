@@ -38,7 +38,8 @@ fun SettingsHubDialog(
     onOpenShowcase: () -> Unit,
     onOpenLanguagePicker: () -> Unit,
     onOpenEditProfile: () -> Unit,
-    onToggleDataSaving: (Boolean) -> Unit
+    onToggleDataSaving: (Boolean) -> Unit,
+    onResetProgress: () -> Unit = {}
 ) {
     val colors = LocalKodeMamasColors.current
 
@@ -299,6 +300,35 @@ fun SettingsHubDialog(
                                     }
                                 }
                                 Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = colors.textSecondary)
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFEF4444).copy(alpha = 0.08f))
+                                    .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                                    .clickable { onResetProgress() }
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Reset Course Progress to 0%",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFDC2626)
+                                    )
+                                    Text(
+                                        text = "Clear completed modules and restart curriculum from zero.",
+                                        fontSize = 10.5.sp,
+                                        color = colors.textSecondary
+                                    )
+                                }
+                                Icon(imageVector = Icons.Default.Refresh, contentDescription = "Reset Progress", tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
                             }
                         }
                     }

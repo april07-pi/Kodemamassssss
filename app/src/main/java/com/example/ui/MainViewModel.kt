@@ -390,6 +390,7 @@ Think like a tech leader: If you were creating a system request to solve a chall
     }
 
     fun selectLesson(lesson: Lesson) {
+        _showCourseDetail.value = false
         viewModelScope.launch {
             _currentActiveLesson.value = lesson
             _currentStepIndex.value = 0
@@ -411,7 +412,14 @@ Think like a tech leader: If you were creating a system request to solve a chall
     }
 
     fun startLesson(lesson: Lesson) {
+        _showCourseDetail.value = false
         selectLesson(lesson)
+    }
+
+    fun resetProgressToZero() {
+        viewModelScope.launch {
+            repository.resetProgressToZero()
+        }
     }
 
     fun closeActiveLesson() {
@@ -454,9 +462,9 @@ Think like a tech leader: If you were creating a system request to solve a chall
         }
     }
 
-    fun runSimulatorCode() {
-        val currentLesson = _currentActiveLesson.value ?: return
-        val step = _currentActiveSteps.value.getOrNull(_currentStepIndex.value) ?: return
+    fun runSimulatorCode(languageOverride: String? = null) {
+        val currentLesson = _currentActiveLesson.value
+        val step = _currentActiveSteps.value.getOrNull(_currentStepIndex.value)
         val currentCode = _editorText.value.trim()
 
         if (currentCode.isEmpty()) {
@@ -465,7 +473,9 @@ Think like a tech leader: If you were creating a system request to solve a chall
             return
         }
 
-        when (currentLesson.category) {
+        val category = currentLesson?.category ?: languageOverride ?: "HTML"
+
+        when (category) {
             "HTML" -> {
                 when {
                     currentCode.contains("<h1>") && currentCode.contains("</h1>") -> {
@@ -615,6 +625,38 @@ Think like a tech leader: If you were creating a system request to solve a chall
                 }
             }
         }
+
+        if (_simulatorSuccess.value) {
+            viewModelScope.launch {
+                userProfile.value?.let { profile ->
+                    repository.updateProfile(profile.copy(xp = profile.xp + 25, streak = profile.streak.coerceAtLeast(1)))
+                }
+                if (currentLesson != null) {
+                    repository.saveUserProgress(
+                        lessonId = currentLesson.id,
+                        stepIndex = _currentStepIndex.value,
+                        completed = true,
+                        quizCompleted = false,
+                        score = 80
+                    )
+                } else if (languageOverride != null) {
+                    val matchingId = when (languageOverride) {
+                        "HTML" -> "html_1"
+                        "CSS" -> "css_2"
+                        "JavaScript" -> "js_3"
+                        "Python" -> "python_4"
+                        else -> "html_1"
+                    }
+                    repository.saveUserProgress(
+                        lessonId = matchingId,
+                        stepIndex = 1,
+                        completed = true,
+                        quizCompleted = false,
+                        score = 80
+                    )
+                }
+            }
+        }
     }
 
     fun completeStep() {
@@ -622,9 +664,17 @@ Think like a tech leader: If you were creating a system request to solve a chall
             val currentLesson = _currentActiveLesson.value ?: return@launch
             val steps = _currentActiveSteps.value
             val currentIdx = _currentStepIndex.value
-            
+
             if (currentIdx == steps.size - 1) {
-                // Lesson steps finished -> Load interactive quiz questions
+                // Lesson steps finished -> Record progress immediately
+                repository.saveUserProgress(
+                    lessonId = currentLesson.id,
+                    stepIndex = currentIdx,
+                    completed = true,
+                    quizCompleted = false,
+                    score = 80
+                )
+                // Load interactive quiz questions
                 repository.getQuizForLesson(currentLesson.id).collect { questions ->
                     _activeQuizQuestions.value = questions
                     _quizQuestionIndex.value = 0
